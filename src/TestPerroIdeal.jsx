@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import razas from "./razas.json";
+import imagenesLocales from "./imagenesLocales.json";
 
 const NO_IMPORTA = "no_importa";
 
@@ -11,6 +12,10 @@ const C = {
   gold:       "#FFA019",
   goldLight:  "#f5efd4",
   goldDark:   "#8a7030",
+  red:        "#D6293E",
+  redLight:   "rgba(214,41,62,0.10)",
+  success:    "#3C8A52",
+  successLight: "rgba(60,138,82,0.12)",
   white:      "#ffffff",
   surface:    "#f7f6f3",
   pageBg:     "#e7eaf2",
@@ -51,9 +56,409 @@ const DogSizeIllustration = ({ size, width = 80, height = 66 }) => {
   );
 };
 
- 
+// ─── Imagen de raza: primero carpeta local /perros, luego API como respaldo ──
+const imagenCache = {}; // nombreRaza -> url | null (null = sin imagen encontrada)
+const galeriaCache = {}; // nombreRaza -> string[] (urls) | null
 
-// ─── SVG: nivel de actividad ─────────────────────────────────────────────────
+function urlFotoLocal(nombreArchivo) {
+  // codifica espacios y caracteres especiales (ej. "akita mericano.jpg", "ALANO ESPAÑOL.jpg")
+  return "/perros/" + nombreArchivo.split("/").map(encodeURIComponent).join("/");
+}
+
+function fotosLocalesDeRaza(nombreRaza) {
+  const archivos = imagenesLocales[nombreRaza];
+  if (!archivos || archivos.length === 0) return null;
+  return archivos.map(urlFotoLocal);
+}
+
+function nombreParaBusqueda(nombre) {
+  return nombre
+    .replace(/\s*\(.*?\)\s*/g, "") // quita anotaciones tipo "(NO ACEPTADA FCI)"
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+async function buscarImagenRaza(nombreRaza) {
+  if (imagenCache[nombreRaza] !== undefined) return imagenCache[nombreRaza];
+
+  const locales = fotosLocalesDeRaza(nombreRaza);
+  if (locales && locales.length > 0) {
+    imagenCache[nombreRaza] = locales[0];
+    return imagenCache[nombreRaza];
+  }
+
+  const query = nombreParaBusqueda(nombreRaza);
+
+  // 1) Intento directo: página de Wikipedia con ese título exacto
+  try {
+    const res = await fetch(
+      `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(query)}&prop=pageimages&format=json&pithumbsize=640&origin=*`
+    );
+    const data = await res.json();
+    const page = Object.values(data?.query?.pages || {})[0];
+    if (page?.thumbnail?.source) {
+      imagenCache[nombreRaza] = page.thumbnail.source;
+      return imagenCache[nombreRaza];
+    }
+  } catch {
+    /* sigue al siguiente intento */
+  }
+
+  // 2) Fallback: búsqueda en Wikimedia Commons
+  try {
+    const url =
+      "https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrlimit=1&prop=imageinfo&iiprop=url&iiurlwidth=640&format=json&origin=*&gsrsearch=" +
+      encodeURIComponent(`${query} dog filetype:bitmap`);
+    const res = await fetch(url);
+    const data = await res.json();
+    const page = Object.values(data?.query?.pages || {})[0];
+    const info = page?.imageinfo?.[0];
+    const foundUrl = info?.thumburl || info?.url || null;
+    imagenCache[nombreRaza] = foundUrl;
+    return foundUrl;
+  } catch {
+    imagenCache[nombreRaza] = null;
+    return null;
+  }
+}
+
+// Devuelve varias fotos distintas de la raza (galería), buscando en Wikimedia Commons.
+async function buscarGaleriaRaza(nombreRaza, max = 5) {
+  if (galeriaCache[nombreRaza] !== undefined) return galeriaCache[nombreRaza];
+
+  const locales = fotosLocalesDeRaza(nombreRaza);
+  if (locales && locales.length > 0) {
+    galeriaCache[nombreRaza] = locales.slice(0, max);
+    return galeriaCache[nombreRaza];
+  }
+
+  const query = nombreParaBusqueda(nombreRaza);
+
+  try {
+    const url =
+      "https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrlimit=20&prop=imageinfo&iiprop=url&iiurlwidth=640&format=json&origin=*&gsrsearch=" +
+      encodeURIComponent(`${query} dog filetype:bitmap`);
+    const res = await fetch(url);
+    const data = await res.json();
+    const pages = Object.values(data?.query?.pages || {});
+
+    const urls = pages
+      .map((p) => p?.imageinfo?.[0]?.thumburl || p?.imageinfo?.[0]?.url)
+      .filter(Boolean)
+      // descarta logos/iconos/escudos que a veces aparecen en resultados de Commons
+      .filter((u) => !/logo|icon|crest|map|flag/i.test(u))
+      .slice(0, max);
+
+    galeriaCache[nombreRaza] = urls.length > 0 ? urls : null;
+    return galeriaCache[nombreRaza];
+  } catch {
+    galeriaCache[nombreRaza] = null;
+    return null;
+  }
+}
+
+const BreedImage = ({ nombre, size = 96, rounded = 12 }) => {
+  const [src, setSrc] = useState(imagenCache[nombre] ?? undefined);
+  const [errored, setErrored] = useState(false);
+
+  useEffect(() => {
+    let activo = true;
+    if (imagenCache[nombre] !== undefined) {
+      setSrc(imagenCache[nombre]);
+      return;
+    }
+    buscarImagenRaza(nombre).then((url) => {
+      if (activo) setSrc(url);
+    });
+    return () => { activo = false; };
+  }, [nombre]);
+
+  const mostrarFallback = errored || src === null || !src;
+
+  return (
+    <div
+      style={{
+        width: size, height: size, borderRadius: rounded, overflow: "hidden",
+        background: C.navyLight, display: "flex", alignItems: "center",
+        justifyContent: "center", flexShrink: 0,
+      }}
+    >
+      {mostrarFallback ? (
+        <DogSizeIllustration size="mediano" width={size * 0.8} height={size * 0.66} />
+      ) : (
+        <img
+          src={src}
+          alt={nombre}
+          onError={() => setErrored(true)}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        />
+      )}
+    </div>
+  );
+};
+
+// Galería de fotos de raza: imagen grande + miniaturas navegables (estilo "ficha de producto")
+const BreedGallery = ({ nombre, width = 360, height = 280 }) => {
+  const [fotos, setFotos] = useState(galeriaCache[nombre] ?? undefined);
+  const [idx, setIdx] = useState(0);
+  const [errored, setErrored] = useState({});
+
+  useEffect(() => {
+    let activo = true;
+    setIdx(0);
+    setErrored({});
+    if (galeriaCache[nombre] !== undefined) {
+      setFotos(galeriaCache[nombre]);
+      return;
+    }
+    buscarGaleriaRaza(nombre).then((urls) => {
+      if (activo) setFotos(urls);
+    });
+    return () => { activo = false; };
+  }, [nombre]);
+
+  const validas = (fotos || []).filter((_, i) => !errored[i]);
+  const sinFotos = fotos === null || (fotos && validas.length === 0);
+
+  if (sinFotos || fotos === undefined) {
+    // sin galería disponible (o aún cargando) -> imagen única con fallback
+    return <BreedImage nombre={nombre} size={Math.min(width, height)} rounded={16} />;
+  }
+
+  const actual = Math.min(idx, fotos.length - 1);
+  const anterior = () => setIdx((i) => (i - 1 + fotos.length) % fotos.length);
+  const siguiente = () => setIdx((i) => (i + 1) % fotos.length);
+
+  return (
+    <div style={{ width, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div
+        style={{
+          position: "relative", width: "100%", height, borderRadius: 16,
+          overflow: "hidden", background: C.navyLight, flexShrink: 0,
+        }}
+      >
+        {errored[actual] ? (
+          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <DogSizeIllustration size="mediano" width={width * 0.5} height={height * 0.5} />
+          </div>
+        ) : (
+          <img
+            src={fotos[actual]}
+            alt={`${nombre} - foto ${actual + 1}`}
+            onError={() => setErrored((e) => ({ ...e, [actual]: true }))}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        )}
+        {fotos.length > 1 && (
+          <>
+            <button
+              onClick={anterior}
+              aria-label="Foto anterior"
+              style={{
+                position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)",
+                width: 32, height: 32, borderRadius: "50%", border: "none",
+                background: "rgba(255,255,255,0.85)", color: C.navyDark, fontSize: 16,
+                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+              }}
+            >‹</button>
+            <button
+              onClick={siguiente}
+              aria-label="Foto siguiente"
+              style={{
+                position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+                width: 32, height: 32, borderRadius: "50%", border: "none",
+                background: "rgba(255,255,255,0.85)", color: C.navyDark, fontSize: 16,
+                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+              }}
+            >›</button>
+          </>
+        )}
+      </div>
+
+      {fotos.length > 1 && (
+        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+          {fotos.map((url, i) => (
+            <button
+              key={i}
+              onClick={() => setIdx(i)}
+              aria-label={`Ver foto ${i + 1}`}
+              style={{
+                width: 52, height: 52, borderRadius: 8, overflow: "hidden", padding: 0,
+                border: `2px solid ${i === actual ? C.gold : "transparent"}`,
+                cursor: "pointer", background: C.navyLight, flexShrink: 0,
+                opacity: errored[i] ? 0.35 : 1,
+              }}
+            >
+              {!errored[i] && (
+                <img
+                  src={url}
+                  alt=""
+                  onError={() => setErrored((e) => ({ ...e, [i]: true }))}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Avatar circular con anillo de progreso (compatibilidad) - estilo selector de razas
+const BreedAvatar = ({ nombre, pct, size = 64, activo = false, onClick }) => {
+  const grosor = Math.max(3, size * 0.045);
+  const r = (size - grosor * 2) / 2;
+  const cx = size / 2, cy = size / 2;
+  const circunferencia = 2 * Math.PI * r;
+  const offset = circunferencia * (1 - Math.min(100, Math.max(0, pct)) / 100);
+
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        background: "none", border: "none", cursor: onClick ? "pointer" : "default",
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
+        padding: 0, width: size + 12,
+      }}
+    >
+      <div style={{ position: "relative", width: size, height: size }}>
+        <svg width={size} height={size} style={{ position: "absolute", top: 0, left: 0, transform: "rotate(-90deg)" }}>
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke={C.border} strokeWidth={grosor} />
+          <circle
+            cx={cx} cy={cy} r={r} fill="none"
+            stroke={activo ? C.gold : C.navy} strokeWidth={grosor}
+            strokeDasharray={circunferencia} strokeDashoffset={offset}
+            strokeLinecap="round"
+          />
+        </svg>
+        <div style={{
+          position: "absolute", top: grosor, left: grosor, width: size - grosor * 2, height: size - grosor * 2,
+          borderRadius: "50%", overflow: "hidden", background: C.navyLight,
+        }}>
+          <BreedImage nombre={nombre} size={size - grosor * 2} rounded={0} />
+        </div>
+      </div>
+      <span style={{
+        fontSize: 15, fontWeight: 700,
+        color: activo ? C.gold : C.muted,
+      }}>{Math.round(pct)}%</span>
+    </button>
+  );
+};
+
+const historiaCache = {};
+
+async function buscarHistoriaRaza(nombreRaza) {
+  if (historiaCache[nombreRaza] !== undefined) return historiaCache[nombreRaza];
+  const query = nombreParaBusqueda(nombreRaza);
+  try {
+    const res = await fetch(
+      `https://es.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(query)}&prop=extracts&exintro=1&explaintext=1&format=json&origin=*`
+    );
+    const data = await res.json();
+    const page = Object.values(data?.query?.pages || {})[0];
+    historiaCache[nombreRaza] = page?.extract || null;
+    return historiaCache[nombreRaza];
+  } catch {
+    historiaCache[nombreRaza] = null;
+    return null;
+  }
+}
+
+const HistoriaRaza = ({ nombre }) => {
+  const [texto, setTexto] = useState(historiaCache[nombre] ?? undefined);
+
+  useEffect(() => {
+    let activo = true;
+    if (historiaCache[nombre] !== undefined) { setTexto(historiaCache[nombre]); return; }
+    buscarHistoriaRaza(nombre).then((t) => { if (activo) setTexto(t); });
+    return () => { activo = false; };
+  }, [nombre]);
+
+  if (!texto) return null; // sin datos o aún cargando: no renderiza nada
+
+  return (
+    <div style={{ background: C.white, padding: "8px 56px 48px" }}>
+      <p style={{ fontSize: 12, color: C.goldDark, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 14 }}>
+        Historia de la raza
+      </p>
+      <p style={{ fontSize: 14.5, color: C.text, lineHeight: 1.8, maxWidth: 760, margin: 0 }}>{texto}</p>
+      <p style={{ fontSize: 11, color: C.muted, marginTop: 10 }}>Fuente: Wikipedia (CC BY-SA)</p>
+    </div>
+  );
+};
+
+const CARACT_COL1 = [
+  { key: "baboseo", label: "Tendencia a babear" },
+  { key: "aseo", label: "Necesidades de aseo" },
+  { key: "mudaPelo", label: "Nivel de muda" },
+  { key: "ladridos", label: "Tendencia a ladrar" },
+  { key: "energia", label: "Nivel de energía" },
+  { key: "otrasMascotas", label: "Compatibilidad con otras mascotas" },
+];
+const CARACT_COL2 = [
+  { key: "calor", label: "¿Tolera el calor?" },
+  { key: "frio", label: "¿Tolera el frío?" },
+  { key: "apartamento", label: "Apto para piso" },
+  { key: "quedarseSolo", label: "Puede quedarse solo" },
+  { key: "familiar", label: "¿Apto para familias?" },
+];
+
+const CharacteristicsPanel = ({ raza }) => {
+  const [subtab, setSubtab] = useState("caracteristicas");
+  const valores = caracteristicasRaza(raza);
+  const especificidades = especificidadesRaza(raza);
+
+  const Tab = (key, label) => (
+    <button
+      onClick={() => setSubtab(key)}
+      style={{
+        fontSize: 15, fontWeight: 600, background: "none", border: "none", cursor: "pointer",
+        fontFamily: "inherit", padding: "0 0 10px",
+        color: subtab === key ? C.red : C.muted,
+        borderBottom: `2px solid ${subtab === key ? C.red : "transparent"}`,
+      }}
+    >{label}</button>
+  );
+
+  const Row = ({ label, value }) => (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <span style={{ fontSize: 14, color: C.red, fontWeight: 500 }}>{label}</span>
+      <StarRating value={value} />
+    </div>
+  );
+
+  return (
+    <div style={{ background: C.white, padding: "40px 56px 8px" }}>
+      <div style={{ display: "flex", gap: 32, justifyContent: "center", marginBottom: 36 }}>
+        {Tab("caracteristicas", "Características")}
+        {Tab("especificas", "Específicas")}
+      </div>
+
+      {subtab === "caracteristicas" ? (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 64, rowGap: 22, maxWidth: 760, margin: "0 auto 40px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+            {CARACT_COL1.map((c) => <Row key={c.key} label={c.label} value={valores[c.key]} />)}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+            {CARACT_COL2.map((c) => <Row key={c.key} label={c.label} value={valores[c.key]} />)}
+          </div>
+        </div>
+      ) : (
+        <div style={{ maxWidth: 600, margin: "0 auto 40px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {especificidades.map((linea, i) => (
+            <p key={i} style={{ fontSize: 14, color: C.text, margin: 0 }}>{linea}</p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ActivityIcon = ({ level }) => {
   if (level === "bajo") return (
     <svg viewBox="0 0 48 48" width="44" height="44" xmlns="http://www.w3.org/2000/svg">
@@ -129,13 +534,68 @@ const HouseIcon = ({ type }) => {
       <rect x="26" y="34" width="4"  height="14" rx="0.5" fill={C.navy} opacity="0.3"/>
       <rect x="8"  y="22" width="8"  height="7"  rx="1" fill="white" opacity="0.3"/>
       <rect x="40" y="22" width="8"  height="7"  rx="1" fill="white" opacity="0.3"/>
-      <circle cx="10" cy="50" r="5" fill="#4caf50" opacity="0.8"/>
-      <circle cx="46" cy="50" r="5" fill="#4caf50" opacity="0.8"/>
-      <circle cx="6"  cy="54" r="3" fill="#4caf50" opacity="0.6"/>
-      <circle cx="50" cy="54" r="3" fill="#4caf50" opacity="0.6"/>
+      <circle cx="10" cy="50" r="5" fill={C.success} opacity="0.8"/>
+      <circle cx="46" cy="50" r="5" fill={C.success} opacity="0.8"/>
+      <circle cx="6"  cy="54" r="3" fill={C.success} opacity="0.6"/>
+      <circle cx="50" cy="54" r="3" fill={C.success} opacity="0.6"/>
     </svg>
   );
 };
+
+const Star = ({ filled }) => (
+  <svg viewBox="0 0 20 20" width="15" height="15" style={{ marginRight: 1 }}>
+    <path
+      d="M10 1.5l2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-3-5.3 3 1.1-6L1.4 7.9l6-.8z"
+      fill={filled ? C.red : "none"}
+      stroke={C.red}
+      strokeWidth="1"
+    />
+  </svg>
+);
+
+const StarRating = ({ value = 0, max = 5 }) => (
+  <div style={{ display: "flex" }}>
+    {Array.from({ length: max }).map((_, i) => <Star key={i} filled={i < value} />)}
+  </div>
+);
+
+// ─── Rasgos cortos de la raza (estilo "Atento, Guardián, Amoroso") ──────────
+function rasgosDeRaza(raza) {
+  const candidatos = [];
+
+  // Sociabilidad / temperamento social
+  if (raza.sociabilidad === "muy_sociable") candidatos.push("Amoroso");
+  else if (raza.sociabilidad === "sociable") candidatos.push("Sociable");
+  else if (raza.sociabilidad === "reservado") candidatos.push("Reservado");
+  else if (raza.sociabilidad === "poco_sociable") candidatos.push("Independiente");
+
+  // Protección / vigilancia
+  if (raza.proteccion === "no_comparte_nada") candidatos.push("Guardián");
+  else if (raza.proteccion === "comparte_mucho") candidatos.push("Confiado");
+
+  // Energía
+  if (raza.energia === "muy_alto") candidatos.push("Enérgico");
+  else if (raza.energia === "alto") candidatos.push("Activo");
+  else if (raza.energia === "bajo") candidatos.push("Tranquilo");
+
+  // Juego
+  if (raza.juego === "juguetón") candidatos.push("Juguetón");
+
+  // Adaptabilidad
+  if (raza.adaptabilidad === "adaptable") candidatos.push("Adaptable");
+
+  // Ladridos / atención
+  if (raza.ladridos === "alto") candidatos.push("Atento");
+
+  // Entrenamiento
+  if (raza.entrenamiento === "muy_alto" || raza.entrenamiento === "alto") candidatos.push("Inteligente");
+
+  // Niños
+  if (raza.ninos === "muy_recomendado") candidatos.push("Familiar");
+
+  const unicos = [...new Set(candidatos)];
+  return unicos.length > 0 ? unicos.slice(0, 3) : ["Leal", "Compañero", "Equilibrado"];
+}
 
 // ─── Escalas y pesos ─────────────────────────────────────────────────────────
 const ESCALA_ENERGIA      = ["bajo", "medio", "alto", "muy_alto"];
@@ -146,11 +606,300 @@ const ESCALA_ENTRENAMIENTO= ["nada", "bajo", "normal", "alto", "muy_alto"];
 const ESCALA_ASEO         = ["mensual", "quincenal", "semanal", "frecuente", "diario"];
 const ESCALA_MUDA         = ["sin_muda", "baja", "media", "alta"];
 
+const ESCALA_LADRIDOS = ["bajo", "medio", "alto"]; // ajusta si tu JSON usa otros valores
+const ESCALA_RECOMENDACION = ["no_recomendado", "poco_recomendado", "recomendado", "muy_recomendado"];
+
+function escalaAEstrellas(escala, valor, defecto = 3) {
+  const i = escala.indexOf(valor);
+  if (i === -1) return defecto;
+  return Math.round(1 + (i * 4) / (escala.length - 1));
+}
+
+function caracteristicasRaza(raza) {
+  let apartamento = 3;
+  if (raza.vivienda === "piso" || raza.vivienda === "indiferente") apartamento += 1;
+  if (raza.vivienda === "casa_con_jardin") apartamento -= 1;
+  if (raza.energia === "muy_alto") apartamento -= 1;
+  if (raza.energia === "bajo") apartamento += 1;
+  if (raza.tamano === "muy_grande") apartamento -= 1;
+
+  let quedarseSolo = 3;
+  if (raza.sociabilidad === "poco_sociable" || raza.sociabilidad === "reservado") quedarseSolo += 1;
+  if (raza.sociabilidad === "muy_sociable") quedarseSolo -= 1;
+  if (raza.proteccion === "no_comparte_nada") quedarseSolo -= 1;
+
+  return {
+    baboseo:       escalaAEstrellas(["bajo", "medio", "alto"], raza.baboseo, 2),        // no existe aún en tu JSON
+    aseo:          escalaAEstrellas(ESCALA_ASEO, raza.aseo, 3),
+    mudaPelo:      escalaAEstrellas(ESCALA_MUDA, raza.mudaPelo, 3),
+    ladridos:      escalaAEstrellas(ESCALA_LADRIDOS, raza.ladridos, 3),
+    energia:       escalaAEstrellas(ESCALA_ENERGIA, raza.energia, 3),
+    otrasMascotas: escalaAEstrellas(ESCALA_RECOMENDACION, raza.otrasMascotas, 3),
+    calor:         escalaAEstrellas(["bajo", "medio", "alto"], raza.toleranciaCalor, 3), // idem
+    frio:          escalaAEstrellas(["bajo", "medio", "alto"], raza.toleranciaFrio, 3),  // idem
+    apartamento:   Math.min(5, Math.max(1, apartamento)),
+    quedarseSolo:  Math.min(5, Math.max(1, quedarseSolo)),
+    familiar:      escalaAEstrellas(ESCALA_RECOMENDACION, raza.ninos, 3),
+  };
+}
+
 const PESOS = {
   tamano: 4, actividad: 5, ninos: 5, temperamento: 3,
   aseo: 3, salud: 2, entrenamiento: 2, otros_perros: 3,
   tuvo_perro: 1, vivienda: 4,
 };
+
+// ─── Etiquetas legibles para valores de razas.json ───────────────────────────
+const ETIQ_TAMANO = {
+  pequeño: "Mini / pequeño", mediano: "Mediano", grande: "Grande",
+  muy_grande: "Gigante", indiferente: "Cualquier tamaño",
+};
+const ETIQ_ENERGIA = { bajo: "Bajo", medio: "Medio", alto: "Alto", muy_alto: "Muy alto" };
+const ETIQ_NINOS = {
+  muy_recomendado: "Sí (todas las edades)", recomendado: "Sí, recomendado",
+  poco_recomendado: "Con supervisión", no_recomendado: "No recomendado",
+};
+const ETIQ_SOCIABILIDAD = {
+  muy_sociable: "Muy sociable", sociable: "Sociable",
+  reservado: "Reservado", poco_sociable: "Independiente",
+};
+const ETIQ_OTRAS_MASCOTAS = {
+  muy_recomendado: "Excelente", recomendado: "Bueno",
+  poco_recomendado: "Difícil", no_recomendado: "No recomendado",
+};
+const ETIQ_ENTRENAMIENTO = {
+  nada: "Mínimas", bajo: "Básicas", normal: "Moderadas",
+  alto: "Altas", muy_alto: "Muy altas",
+};
+const ETIQ_ASEO = {
+  mensual: "Bajos", quincenal: "Moderados", semanal: "Moderados",
+  frecuente: "Altos", diario: "Muy altos",
+};
+const ETIQ_VIVIENDA = {
+  piso: "Piso sin jardín", piso_con_terraza: "Casa sin jardín o con jardín pequeño",
+  casa_con_jardin: "Casa con jardín amplio", indiferente: "Cualquier vivienda",
+};
+
+// Nivel de cuidados veterinarios: no existe en razas.json, se infiere de mudaPelo + estimulacion
+function nivelVeterinario(raza) {
+  const muda = { sin_muda: 0, baja: 0.5, media: 1, alta: 1.5 }[raza.mudaPelo] ?? 1;
+  const estim = { bajo: 0, medio: 1, alto: 2, muy_alto: 3 }[raza.estimulacion] ?? 1;
+  const score = muda + estim;
+  if (score >= 3.5) return "alto";
+  if (score >= 1.5) return "medio";
+  return "bajo";
+}
+const ETIQ_VETERINARIO = { bajo: "Bajo", medio: "Medio", alto: "Alto" };
+
+// ¿La respuesta del usuario "acierta" con el valor real de la raza? true | false | null (no aplica/no comparable)
+function comparar(escala, vU, vR, tolerancia = 0) {
+  if (!vU || vU === NO_IMPORTA || !vR) return null;
+  const i = escala.indexOf(vU), j = escala.indexOf(vR);
+  if (i === -1 || j === -1) return null;
+  return Math.abs(i - j) <= tolerancia;
+}
+
+// Construye las filas de cada pestaña: { label, valor (texto a mostrar), acierto: true/false/null }
+function construirFilasResultado(raza, resp) {
+  const tamanoRazaIdx = raza.tamano === "indiferente" ? null : ESCALA_TAMANO.indexOf(raza.tamano);
+  const tamanoUsuarioOk =
+    resp.tamano === NO_IMPORTA || !resp.tamano
+      ? null
+      : raza.tamano === "indiferente"
+        ? true
+        : comparar(ESCALA_TAMANO, resp.tamano, raza.tamano, 0);
+
+  const vetNivel = nivelVeterinario(raza);
+  const ESCALA_VET = ["bajo", "medio", "alto"];
+
+  return {
+    perfil: [
+      {
+        label: "Tamaño",
+        valor: ETIQ_TAMANO[raza.tamano] || raza.tamano,
+        acierto: tamanoUsuarioOk,
+      },
+      {
+        label: "Nivel de energía",
+        valor: ETIQ_ENERGIA[raza.energia] || raza.energia,
+        acierto: comparar(ESCALA_ENERGIA, resp.actividad, raza.energia, 0),
+      },
+    ],
+    temperamento: [
+      {
+        label: "Apto para niños",
+        valor: ETIQ_NINOS[raza.ninos] || raza.ninos,
+        acierto:
+          !resp.ninos || resp.ninos === "sin_ninos"
+            ? null
+            : raza.ninos === "muy_recomendado" || raza.ninos === "recomendado",
+      },
+      {
+        label: "Temperamento con las personas",
+        valor: ETIQ_SOCIABILIDAD[raza.sociabilidad] || raza.sociabilidad,
+        acierto: (() => {
+          if (!resp.temperamento) return null;
+          if (resp.temperamento === "amistoso") return comparar(ESCALA_SOCIABILIDAD, "muy_sociable", raza.sociabilidad, 1);
+          if (resp.temperamento === "independiente") return comparar(ESCALA_SOCIABILIDAD, "reservado", raza.sociabilidad, 1);
+          if (resp.temperamento === "protector") return comparar(ESCALA_PROTECCION, "comparte_mucho", raza.proteccion, 1);
+          if (resp.temperamento === "timido") return comparar(ESCALA_SOCIABILIDAD, "poco_sociable", raza.sociabilidad, 1);
+          return null;
+        })(),
+      },
+      {
+        label: "Temperamento con otros perros",
+        valor: ETIQ_OTRAS_MASCOTAS[raza.otrasMascotas] || raza.otrasMascotas,
+        acierto:
+          resp.otros_perros !== "si"
+            ? null
+            : raza.otrasMascotas === "muy_recomendado" || raza.otrasMascotas === "recomendado",
+      },
+    ],
+    cuidados: [
+      {
+        label: "Necesidades educativas",
+        valor: ETIQ_ENTRENAMIENTO[raza.entrenamiento] || raza.entrenamiento,
+        acierto: comparar(ESCALA_ENTRENAMIENTO, resp.entrenamiento, raza.entrenamiento, 1),
+      },
+      {
+        label: "Cuidados de aseo",
+        valor: ETIQ_ASEO[raza.aseo] || raza.aseo,
+        acierto: comparar(ESCALA_ASEO, resp.aseo, raza.aseo, 1),
+      },
+      {
+        label: "Nivel de cuidados veterinarios",
+        valor: ETIQ_VETERINARIO[vetNivel],
+        acierto:
+          !resp.salud || resp.salud === NO_IMPORTA
+            ? null
+            : comparar(ESCALA_VET, resp.salud === "alto" ? "alto" : resp.salud === "bajo" ? "bajo" : "medio", vetNivel, 0),
+      },
+    ],
+    acercaDeTi: [
+      {
+        label: "Adaptado para una primera experiencia",
+        valor: raza.entrenamiento === "bajo" || raza.entrenamiento === "nada" ? "Sí" : "Requiere experiencia previa",
+        acierto:
+          resp.tuvo_perro !== "primerizo"
+            ? null
+            : raza.entrenamiento === "bajo" || raza.entrenamiento === "nada",
+      },
+      {
+        label: "Requisitos del entorno vital",
+        valor: ETIQ_VIVIENDA[raza.vivienda] || raza.vivienda,
+        acierto:
+          resp.vivienda === NO_IMPORTA || !resp.vivienda
+            ? null
+            : raza.vivienda === "indiferente"
+              ? true
+              : comparar(["piso", "piso_con_terraza", "casa_con_jardin"], resp.vivienda, raza.vivienda, 0),
+      },
+    ],
+  };
+}
+
+// ─── Descripción en prosa generada a partir de los atributos del JSON ───────
+function descripcionGenerada(raza, nombreFormateado) {
+  const tamanoTxt = {
+    pequeño: "de tamaño pequeño", mediano: "de tamaño mediano",
+    grande: "de tamaño grande", muy_grande: "de gran tamaño",
+    indiferente: "de tamaño variable",
+  }[raza.tamano] || "";
+
+  const energiaTxt = {
+    bajo: "un nivel de energía tranquilo, feliz con paseos moderados",
+    medio: "un nivel de energía moderado, con necesidad de ejercicio regular",
+    alto: "un nivel de energía alto, que agradece largas sesiones de actividad",
+    muy_alto: "un nivel de energía muy alto, ideal para personas muy activas",
+  }[raza.energia] || "";
+
+  const socialTxt = {
+    muy_sociable: "Es una raza muy sociable y afectuosa con las personas",
+    sociable: "Es una raza sociable que disfruta de la compañía humana",
+    reservado: "Es una raza algo reservada, que necesita tiempo para confiar",
+    poco_sociable: "Es una raza independiente y selectiva con los desconocidos",
+  }[raza.sociabilidad] || "";
+
+  const aseoTxt = {
+    mensual: "sus necesidades de aseo son mínimas",
+    quincenal: "requiere un aseo moderado",
+    semanal: "requiere cepillado semanal",
+    frecuente: "necesita cuidados de aseo frecuentes",
+    diario: "necesita cuidados de aseo intensivos y regulares",
+  }[raza.aseo] || "";
+
+  const ninosTxt = {
+    muy_recomendado: "Se considera muy recomendada para hogares con niños.",
+    recomendado: "Se considera recomendada para la convivencia con niños.",
+    poco_recomendado: "Su convivencia con niños requiere supervisión.",
+    no_recomendado: "No suele recomendarse para hogares con niños pequeños.",
+  }[raza.ninos] || "";
+
+  return (
+    `El ${nombreFormateado} es un perro ${tamanoTxt}, con ${energiaTxt}. ` +
+    `${socialTxt}, y ${aseoTxt}. ${ninosTxt}`
+  ).replace(/\s+/g, " ").trim();
+}
+
+// URL de búsqueda de la FCI por inicial del nombre de la raza (la FCI no expone
+// una ficha por nombre, solo el listado de razas que empiezan por cada letra).
+function urlFCI(nombreRaza) {
+  const limpio = nombreRaza.replace(/\s*\(.*?\)\s*/g, "").trim();
+  const inicial = limpio.charAt(0).toUpperCase();
+  return `https://www.fci.be/Nomenclature/races.aspx?init=${encodeURIComponent(inicial)}`;
+}
+
+// ─── Categoría de tamaño legible para la ficha de detalle ───────────────────
+const CATEGORIA_TAMANO = {
+  pequeño: "Pequeño / mini", mediano: "Mediano",
+  grande: "Grande", muy_grande: "Muy grande", indiferente: "Variable",
+};
+
+// Esperanza de vida aproximada según tamaño (orientativa, no viene en razas.json)
+const ESPERANZA_VIDA = {
+  pequeño: "12-15 años", mediano: "10-13 años",
+  grande: "9-12 años", muy_grande: "8-10 años", indiferente: "10-13 años",
+};
+
+// Tres rasgos de carácter cortos (reutiliza la misma lógica que rasgosDeRaza)
+function caracterRaza(raza) {
+  return rasgosDeRaza(raza).join(" / ");
+}
+
+// "Especificidades de la raza": bloque de datos técnicos
+function especificidadesRaza(raza) {
+  return [
+    `Categoría de tamaño: ${CATEGORIA_TAMANO[raza.tamano] || raza.tamano}`,
+    `Esperanza de vida aproximada: ${ESPERANZA_VIDA[raza.tamano] || "10-13 años"}`,
+    caracterRaza(raza),
+  ];
+}
+
+// "Hechos clave": frases cortas inferidas de los campos del JSON
+function hechosClave(raza) {
+  const hechos = [];
+
+  if (raza.aseo === "mensual" || raza.aseo === "quincenal") hechos.push("Requiere cuidados de aseo mínimos");
+  else if (raza.aseo === "diario") hechos.push("Necesita aseo diario");
+
+  if (raza.entrenamiento === "nada" || raza.entrenamiento === "bajo") hechos.push("Necesita poco entrenamiento");
+  else if (raza.entrenamiento === "muy_alto") hechos.push("Requiere entrenamiento intensivo");
+
+  if (raza.vivienda === "piso" || raza.vivienda === "indiferente") hechos.push("Jardín no esencial");
+  else if (raza.vivienda === "casa_con_jardin") hechos.push("Necesita jardín amplio");
+
+  if (raza.energia === "bajo" || raza.energia === "medio") hechos.push("Se adapta bien a la vida tranquila en casa");
+  else if (raza.energia === "muy_alto") hechos.push("Necesita mucho ejercicio diario");
+
+  if (raza.mudaPelo === "sin_muda" || raza.mudaPelo === "baja") hechos.push("Muda de pelo baja");
+  else if (raza.mudaPelo === "alta") hechos.push("Muda de pelo abundante");
+
+  if (raza.ninos === "muy_recomendado") hechos.push("Excelente con niños");
+  if (raza.otrasMascotas === "muy_recomendado") hechos.push("Se lleva bien con otras mascotas");
+  if (raza.ladridos === "bajo") hechos.push("Poco ladrador");
+
+  return hechos.slice(0, 5);
+}
 
 function puntajeEscala(escala, vU, vR) {
   if (!vU || vU === NO_IMPORTA || !vR) return null;
@@ -421,37 +1170,37 @@ const SECCIONES = ["Perfil", "Temperamento", "Cuidados", "Acerca de ti"];
 // ─── Estilos ─────────────────────────────────────────────────────────────────
 const S = {
   // Layout
-  wrapper: { 
-    width: "100%",                  // Changed from 1920 to take full viewport width
-    minHeight: "100vh",             // Changed from height: 1080 to dynamically scale vertically
-    background: C.pageBg, 
-    fontFamily: "'Segoe UI', system-ui, Arial, sans-serif", 
-    color: C.text, 
-    overflowX: "hidden",            // Prevents accidental horizontal side-scrolls
-    boxSizing: "border-box", 
-    display: "flex", 
-    flexDirection: "column" 
+  wrapper: {
+    width: "100%",
+    minHeight: "100vh",
+    background: C.pageBg,
+    fontFamily: "'Segoe UI', system-ui, Arial, sans-serif",
+    color: C.text,
+    overflowX: "hidden",
+    boxSizing: "border-box",
+    display: "flex",
+    flexDirection: "column"
   },
-  page: { 
-    maxWidth: 1080, 
-    width: "calc(100% - 48px)", 
-    margin: "32px auto",            // The "auto" on the left/right forces it to center perfectly
-    borderRadius: 14, 
-    overflow: "hidden", 
-    boxShadow: "0 10px 30px rgba(13,31,69,0.10)" 
+  page: {
+    maxWidth: 1080,
+    width: "calc(100% - 48px)",
+    margin: "32px auto",
+    borderRadius: 14,
+    overflow: "hidden",
+    boxShadow: "0 10px 30px rgba(13,31,69,0.10)"
   },
   // Header
-  siteHeader: { 
-      background: C.navy, 
-      padding: "0 24px",            // Reduced padding so it doesn't clip on small screens
-      display: "flex", 
-      alignItems: "center", 
-      justifyContent: "space-between", 
-      height: 64, 
+  siteHeader: {
+      background: C.navy,
+      padding: "0 24px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      height: 64,
       borderBottom: `3px solid ${C.gold}`,
-      width: "100%",                // Ensures it spans across the viewport cleanly
+      width: "100%",
       boxSizing: "border-box"
-    },  
+    },
   logoArea:   { display: "flex", alignItems: "center", gap: 14 },
   logoText:   { color: C.white },
   acronym:    { fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.gold, display: "block", lineHeight: 1 },
@@ -524,35 +1273,41 @@ const S = {
   asideLbl:   { fontSize: 11, color: "rgba(255,255,255,0.45)", letterSpacing: "0.06em", textTransform: "uppercase" },
   // Result
   resultHero:    { background: C.navy, padding: "52px 56px 44px", textAlign: "center" },
-  resultEyebrow: { fontSize: 11, letterSpacing: "0.18em", color: C.gold, textTransform: "uppercase", marginBottom: 12 },
+  resultEyebrow: { fontSize: 11, letterSpacing: "0.18em", color: C.goldDark, textTransform: "uppercase", marginBottom: 10, fontWeight: 700 },
   resultBreed:   { fontFamily: "Georgia,serif", fontSize: 36, fontWeight: 700, color: C.white, marginBottom: 10, margin: "0 0 10px" },
-  compatPill:    { display: "inline-flex", alignItems: "center", gap: 8, background: C.gold, color: C.navyDark, fontSize: 13, fontWeight: 700, padding: "6px 20px", borderRadius: 20 },
+  compatPill:    { display: "inline-flex", alignItems: "center", gap: 10, background: C.gold, color: C.navyDark, fontSize: 15, fontWeight: 700, padding: "9px 26px", borderRadius: 24, marginTop: 10 },
   resultBody: { background: C.white, padding: "36px 56px", textAlign: "center" },
+  avatarStrip:   { display: "flex", justifyContent: "center", gap: 26, padding: "40px 32px", background: C.surface, borderBottom: `1px solid ${C.border}`, flexWrap: "wrap" },
+  resultBody2:   { background: C.white, padding: "56px 64px 60px", textAlign: "center" },
+  resultBreedBig:{ fontFamily: "Georgia,serif", fontSize: 48, fontWeight: 700, color: C.navyDark, margin: "0 0 16px" },
+  resultRasgos:  { fontSize: 18, color: C.muted, margin: 0 },
   resultLabel:   { fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 16, display: "block" },
-  altRow:        { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 16px", border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 4 },
+  altRow:        { display: "flex", alignItems: "center", gap: 14, padding: "13px 16px", border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 4 },
   altName:       { fontSize: 14, fontWeight: 700, color: C.navyDark },
   altPct:        { fontSize: 13, color: C.muted },
   pctBar:        { height: 4, background: C.navyLight, borderRadius: 2, marginBottom: 10 },
   pctFill:       (w) => ({ height: 4, background: C.gold, borderRadius: 2, width: `${w}%` }),
   btnPrimary:    { background: C.navy, color: C.white, border: "none", borderRadius: 8, padding: "12px 32px", fontSize: 14, fontWeight: 700, cursor: "pointer", letterSpacing: "0.03em", marginTop: 24, display: "block", margin: "24px auto 0" },
+
   // Peluche
   peluche:    { textAlign: "center", padding: "60px 56px", background: C.white },
   pelucheH2:  { fontFamily: "Georgia,serif", fontSize: 22, color: C.navyDark, margin: "16px 0 10px" },
   pelucheP:   { fontSize: 14, color: C.muted, lineHeight: 1.7, maxWidth: 380, margin: "0 auto 24px" },
   // Landing / pantalla de inicio
-  landing: { 
-      flex: 1, 
-      display: "flex", 
-      alignItems: "center", 
-      justifyContent: "center",     // Added to center both columns as a unit
-      gap: 40,                      // Slightly reduced gap so columns don't overflow your monitor
-      padding: "40px 24px",         // Responsive padding
+  landing: {
+      flex: 1,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 40,
+      padding: "40px 24px",
       background: C.white,
-      maxWidth: 1200,               // Sets a boundary for ultra-wide monitors
-      margin: "0 auto",             // Forces the whole landing block to sit dead center
+      maxWidth: 1200,
+      margin: "0 auto",
       width: "100%",
       boxSizing: "border-box"
-    },  landingLeft:    { flex: 1, maxWidth: 560 },
+    },
+  landingLeft:    { flex: 1, maxWidth: 560 },
   landingEyebrow: { fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", color: C.goldDark, textTransform: "uppercase", marginBottom: 18 },
   landingTitle:   { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 60, fontWeight: 700, color: C.navyDark, lineHeight: 1.15, margin: "0 0 22px" },
   landingDesc:    { fontSize: 16, color: C.muted, lineHeight: 1.7, margin: "0 0 32px", maxWidth: 460 },
@@ -563,6 +1318,51 @@ const S = {
   landingRight:   { flex: 1, height: 560, display: "flex", gap: 14, alignItems: "stretch" },
   filmPanel:      { flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" },
   filmPanelActive:{ flex: 2.4, border: `2px solid ${C.gold}`, background: C.navyLight, boxShadow: "0 10px 24px rgba(0,48,135,0.10)" },
+
+  // ── Panel de resultado: dos columnas (tabs aciertos/fallos + card de raza) ──
+  detailWrap:   { display: "flex", gap: 24, padding: "32px 40px 40px", alignItems: "flex-start", flexWrap: "wrap", background: C.surface },
+  detailLeft:   { flex: "1 1 420px", minWidth: 320, background: C.white, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" },
+  detailTabs:   { display: "flex", borderBottom: `1px solid ${C.border}`, padding: "0 24px" },
+  detailTab:    (active) => ({
+    padding: "18px 16px 14px", fontSize: 14.5, fontWeight: 600, cursor: "pointer",
+    color: active ? C.navy : C.muted, background: "none", border: "none",
+    borderBottom: `3px solid ${active ? C.navy : "transparent"}`, marginBottom: -1,
+    fontFamily: "inherit", whiteSpace: "nowrap",
+  }),
+  detailRows:   { padding: "8px 24px 20px" },
+  detailRow:    { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, padding: "18px 0", borderBottom: `1px solid ${C.border}` },
+  detailRowLabel:{ fontSize: 16, fontWeight: 600, color: C.text, margin: "0 0 4px" },
+  detailRowValue:{ fontSize: 13, color: C.muted, margin: 0 },
+  detailIcon:   (acierto) => ({
+    flexShrink: 0, width: 26, height: 26, borderRadius: "50%",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    background: acierto === null ? C.navyLight : acierto ? C.successLight : C.redLight,
+    color: acierto === null ? C.muted : acierto ? C.success : C.red,
+    marginTop: 2,
+  }),
+
+  detailRight:  { flex: "1 1 340px", minWidth: 300, maxWidth: 420, background: C.white, border: `1px solid ${C.gold}`, borderRadius: 14, padding: "32px 28px", textAlign: "center" },
+  detailBadge:  { width: 64, height: 64, borderRadius: "50%", border: `1.5px solid ${C.gold}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 18px" },
+  detailTitle:  { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 19, fontWeight: 700, color: C.navyDark, margin: "0 0 14px", lineHeight: 1.35 },
+  detailDesc:   { fontSize: 13.5, color: C.muted, lineHeight: 1.7, margin: "0 0 22px" },
+  btnFCI:       { background: C.red, color: C.white, border: "none", borderRadius: 8, padding: "13px 30px", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none" },
+
+  // ── Ficha de raza (pantalla "Más información") ──
+  fichaWrap:     { background: C.white, padding: "44px 56px 56px" },
+  fichaBack:     { display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", color: C.navy, fontSize: 13.5, fontWeight: 600, cursor: "pointer", padding: 0, marginBottom: 28 },
+  fichaHead:     { display: "flex", gap: 48, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 48 },
+  fichaHeadLeft: { flex: "1 1 360px", minWidth: 280 },
+  fichaTitle:    { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 44, fontWeight: 700, color: C.red, lineHeight: 1.12, margin: "0 0 18px" },
+  fichaShare:    { display: "flex", gap: 14, alignItems: "center", marginBottom: 26 },
+  fichaShareBtn: { width: 30, height: 30, borderRadius: "50%", border: `1px solid ${C.border}`, background: C.white, display: "flex", alignItems: "center", justifyContent: "center", color: C.muted, cursor: "default" },
+  fichaDesc:     { fontSize: 14.5, color: C.text, lineHeight: 1.75, maxWidth: 460, margin: 0 },
+  fichaHeadRight:{ flex: "1 1 360px", minWidth: 260, display: "flex", justifyContent: "center" },
+  fichaImgWrap:  { width: "100%", maxWidth: 420, aspectRatio: "4/3", borderRadius: 16, overflow: "hidden", background: C.navyLight },
+  fichaCols:     { display: "flex", gap: 40, flexWrap: "wrap", borderTop: `1px solid ${C.border}`, paddingTop: 36 },
+  fichaCol:      { flex: "1 1 260px", minWidth: 220 },
+  fichaColTitle: { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 19, fontWeight: 700, color: C.red, margin: "0 0 14px" },
+  fichaColP:     { fontSize: 13.5, color: C.text, lineHeight: 1.75, margin: "0 0 10px" },
+  fichaColLine:  { fontSize: 13.5, color: C.text, lineHeight: 1.9, margin: 0 },
 };
 
 // ─── Componente principal ────────────────────────────────────────────────────
@@ -571,6 +1371,7 @@ export default function TestPerroIdeal() {
   const [respuestas, setRespuestas] = useState({});
   const [resultado, setResultado] = useState(null);
   const [hovered, setHovered]     = useState(null);
+  const [razaFicha, setRazaFicha] = useState(null); // nombre de la raza mostrada en la ficha de detalle, o null
   const [mostrarInicio, setMostrarInicio] = useState(() => {
     if (typeof window === "undefined") return true;
     return new URLSearchParams(window.location.search).get("start") !== "test";
@@ -756,22 +1557,9 @@ export default function TestPerroIdeal() {
 
   // ── Render: resultado ──
   const Resultado = () => {
-    const [dogImage, setDogImage] = useState(null);
-    useEffect(() => {
-  const breed = resultado.mejor.nombre;
-  const mapped = BREED_NAME_MAP[breed];
-  const query = mapped || breed.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
-  
-  fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(query)}&prop=pageimages&format=json&pithumbsize=400&origin=*`)
-    .then(r => r.json())
-    .then(data => {
-      const pages = data.query.pages;
-      const page = Object.values(pages)[0];
-      console.log("Result:", page);
-      if (page?.thumbnail?.source) setDogImage(page.thumbnail.source);
-    })
-    .catch(err => console.log("Error:", err));
-}, []);
+    const [seleccionada, setSeleccionada] = useState(0); // 0 = mejor, 1+ = alternativas
+    const [tab, setTab] = useState("perfil");
+
     if (resultado.recomendarPeluche) {
       return (
         <div style={S.peluche}>
@@ -787,68 +1575,155 @@ export default function TestPerroIdeal() {
     }
 
     const { mejor, alternativas } = resultado;
+    const todas = [mejor, ...alternativas];
+    const actual = todas[seleccionada] || mejor;
+    const razaActual = razas.find((r) => r.nombre === actual.nombre);
+    const rasgos = razaActual ? rasgosDeRaza(razaActual) : [];
+    const nombreFormateado = actual.nombre
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+
+    const filas = razaActual ? construirFilasResultado(razaActual, respuestas) : null;
+    const descripcion = razaActual ? descripcionGenerada(razaActual, nombreFormateado) : "";
+
+    const TABS = [
+      { key: "perfil",       label: "Perfil" },
+      { key: "temperamento", label: "Temperamento" },
+      { key: "cuidados",     label: "Cuidados" },
+      { key: "acercaDeTi",   label: "Acerca de ti" },
+    ];
+
+    const IconoAcierto = ({ acierto }) => (
+      <div style={S.detailIcon(acierto)}>
+        {acierto === null ? (
+          <svg viewBox="0 0 20 20" width="13" height="13"><circle cx="10" cy="10" r="2" fill="currentColor" /></svg>
+        ) : acierto ? (
+          <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="10" cy="10" r="9" />
+            <path d="M6 10.5l2.6 2.6L14 7.6" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="10" cy="10" r="9" />
+            <path d="M7 7l6 6M13 7l-6 6" />
+          </svg>
+        )}
+      </div>
+    );
+
     return (
       <>
-        <div style={S.resultHero}>
-          {dogImage && (
-    <img
-      src={dogImage}
-      alt={resultado.mejor.nombre}
-      style={{ width: 220, height: 220, objectFit: "contain", borderRadius: 12, border: `3px solid ${C.gold}`, marginBottom: 16 }}
-    />
-  )}
-          <div style={S.resultEyebrow}>Tu mejor opción</div>
-          <div style={S.resultBreed}>{mejor.nombre}</div>
-          <div style={S.compatPill}>
-            <svg viewBox="0 0 20 20" width="14" height="14" fill={C.navyDark} xmlns="http://www.w3.org/2000/svg">
-              <circle cx="5"   cy="5"  r="2.5" />
-              <circle cx="15"  cy="5"  r="2.5" />
-              <circle cx="2.5" cy="10" r="2"   />
-              <circle cx="17.5"cy="10" r="2"   />
-              <ellipse cx="10" cy="14" rx="5"  ry="4.5" />
-            </svg>
-            {mejor.pct >= 80 ? "Excelente compatibilidad" : "Buena compatibilidad"} · {Math.round(mejor.pct)}%
+        <div style={S.avatarStrip}>
+          {todas.map((p, i) => (
+            <BreedAvatar
+              key={i}
+              nombre={p.nombre}
+              pct={p.pct}
+              size={84}
+              activo={i === seleccionada}
+              onClick={() => { setSeleccionada(i); setTab("perfil"); }}
+            />
+          ))}
+        </div>
+
+        <div style={S.resultBody2}>
+          <div style={S.resultEyebrow}>
+            {seleccionada === 0 ? "Tu mejor opción" : "Otra buena opción"}
+          </div>
+          <h2 style={S.resultBreedBig}>{nombreFormateado}</h2>
+          {rasgos.length > 0 && (
+            <p style={S.resultRasgos}>{rasgos.join(", ")}</p>
+          )}
+
+          <div style={{ display: "flex", justifyContent: "center", margin: "28px 0" }}>
+            <BreedGallery nombre={actual.nombre} width={460} height={350} />
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <div style={S.compatPill}>
+              <svg viewBox="0 0 20 20" width="14" height="14" fill={C.navyDark} xmlns="http://www.w3.org/2000/svg">
+                <circle cx="5"   cy="5"  r="2.5" />
+                <circle cx="15"  cy="5"  r="2.5" />
+                <circle cx="2.5" cy="10" r="2"   />
+                <circle cx="17.5"cy="10" r="2"   />
+                <ellipse cx="10" cy="14" rx="5"  ry="4.5" />
+              </svg>
+              {actual.pct >= 80 ? "Excelente compatibilidad" : "Buena compatibilidad"} · {Math.round(actual.pct)}%
+            </div>
           </div>
         </div>
 
-        <div style={S.resultBody}>
-          {alternativas.length > 0 && (
-            <>
-              <span style={S.resultLabel}>Otras buenas opciones</span>
-              {alternativas.map((p, i) => (
-                <div key={i}>
-                  <div style={S.altRow}>
-                    <span style={S.altName}>{p.nombre}</span>
-                    <span style={S.altPct}>{Math.round(p.pct)}% compatibilidad</span>
+        <CharacteristicsPanel raza={razaActual} />
+        <HistoriaRaza nombre={actual.nombre} />
+
+        {/* ── Detalle: aciertos/fallos a la izquierda, ficha de raza a la derecha ── */}
+        {filas && (
+          <div style={S.detailWrap}>
+            <div style={S.detailLeft}>
+              <div style={S.detailTabs}>
+                {TABS.map((t) => (
+                  <button
+                    key={t.key}
+                    style={S.detailTab(tab === t.key)}
+                    onClick={() => setTab(t.key)}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              <div style={S.detailRows}>
+                {filas[tab].map((f, i) => (
+                  <div key={i} style={{ ...S.detailRow, borderBottom: i === filas[tab].length - 1 ? "none" : S.detailRow.borderBottom }}>
+                    <div>
+                      <p style={S.detailRowLabel}>{f.label}</p>
+                      <p style={S.detailRowValue}>{f.valor}</p>
+                    </div>
+                    <IconoAcierto acierto={f.acierto} />
                   </div>
-                  <div style={S.pctBar}>
-                    <div style={S.pctFill(Math.round(p.pct))} />
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
+                ))}
+              </div>
+            </div>
+
+            <div style={S.detailRight}>
+              <div style={S.detailBadge}>
+                <svg viewBox="0 0 40 40" width="30" height="30" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="20" cy="13" r="6" fill={C.gold} />
+                  <ellipse cx="20" cy="28" rx="11" ry="9" fill={C.gold} />
+                  <ellipse cx="9" cy="11" rx="4" ry="6" fill={C.gold} transform="rotate(-20 9 11)" />
+                  <ellipse cx="31" cy="11" rx="4" ry="6" fill={C.gold} transform="rotate(20 31 11)" />
+                </svg>
+              </div>
+              <h3 style={S.detailTitle}>Acerca de {nombreFormateado}</h3>
+              <p style={S.detailDesc}>{descripcion}</p>
+              <button
+                onClick={() => setRazaFicha(actual.nombre)}
+                style={S.btnFCI}
+              >
+                Más información
+                <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M7 4l6 6-6 6" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div style={{ background: C.white, padding: "0 0 40px", display: "flex", justifyContent: "center" }}>
           <button style={S.btnPrimary} onClick={reiniciar}>Repetir el test</button>
         </div>
       </>
     );
   };
 
-  // ── Render principal ──
- // ── Render principal ────────────────────────────────────────────────────
+  // ── Render principal ────────────────────────────────────────────────────
   return (
-    <div 
+    <div
       style={{
         ...S.wrapper,
-        // DYNAMIC LAYOUT: If we are on the intro page, use a layout optimized to center the two large columns.
-        // If we are in the quiz, switch to a perfectly clean vertical stack.
         justifyContent: mostrarInicio ? "center" : "flex-start",
         alignItems: "center",
       }}
     >
-      {/* CONDITIONAL HEADER: This removes the top institucional header 
-        after the initial page so the quiz elements have maximum space to center.
-      */}
       {mostrarInicio && (
         <header style={S.siteHeader}>
           <div style={S.logoArea}>
@@ -867,7 +1742,6 @@ export default function TestPerroIdeal() {
         </header>
       )}
 
-      {/* Cuerpo */}
       {mostrarInicio ? (
         <Landing />
       ) : (
