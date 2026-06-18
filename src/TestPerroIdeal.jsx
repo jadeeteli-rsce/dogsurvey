@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import razas from "./razas.json";
 import imagenesLocales from "./imagenesLocales.json";
+const LANDING_BREEDS = ["Labrador Retriever", "Pastor Alemán", "Bulldog Francés", "Caniche"];
 
 
 
@@ -190,6 +191,42 @@ const BreedImage = ({ nombre, size = 96, rounded = 12 }) => {
         />
       )}
     </div>
+  );
+};
+
+const LandingPanelImage = ({ nombre }) => {
+  const [src, setSrc] = useState(imagenCache[nombre] ?? undefined);
+  const [errored, setErrored] = useState(false);
+
+  useEffect(() => {
+    let activo = true;
+    if (imagenCache[nombre] !== undefined) {
+      setSrc(imagenCache[nombre]);
+      return;
+    }
+    buscarImagenRaza(nombre).then((url) => {
+      if (activo) setSrc(url);
+    });
+    return () => { activo = false; };
+  }, [nombre]);
+
+  const mostrarFallback = errored || src === null || !src;
+
+  if (mostrarFallback) {
+    return (
+      <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: C.navyLight }}>
+        <DogSizeIllustration size="mediano" width={64} height={53} />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={nombre}
+      onError={() => setErrored(true)}
+      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+    />
   );
 };
 
@@ -618,6 +655,31 @@ const PESOS = {
   tuvo_perro: 1, vivienda: 4,
 };
 
+// ─── Razas destacadas ───────────────────────────────────────────────────────
+// Estas razas reciben una bonificación en la puntuación final para aumentar
+// su probabilidad de aparecer como resultado (mejor opción o alternativa),
+// sin eliminar por completo la influencia de las respuestas del usuario.
+const RAZAS_DESTACADAS = new Set([
+  "AKITA AMERICANO", "AKITA", "ALASKAN MALAMUTE", "AMERICAN STAFFORDSHIRE TERRIER",
+  "AUSTRALIAN CATTLE DOG", "BASENJI", "BASSET HOUND", "BEAGLE", "BICHON HABANERO",
+  "BICHON MALTES", "BORDER COLLIE", "BOSTON TERRIER", "BRACO ALEMAN", "BRACO DE WEIMAR",
+  "BRACO FRANCES - TIPO PIRINEOS", "CANICHE", "CAVALIER KING CHARLES SPANIEL", "CHIHUAHUA",
+  "CHOW CHOW", "COCKER SPANIEL INGLES", "DOBERMANN", "DOGO ALEMAN", "EPAGNEUL BRETON",
+  "EURASIER", "AFGAN HOUND", "GOLDEN RETRIEVER", "PERRO DE PASTOR CATALAN", "GREYHOUND",
+  "IRISH WOLFHOUND", "JACK RUSSELL TERRIER", "LABRADOR RETRIEVER", "LHASA APSO",
+  "MASTIN DEL PIRINEO", "MASTIN ESPAÑOL", "EPAGNEUL NAIN CONTINENTAL",
+  "PASTOR MINIATURA AMERICANO (PROV. ACEP. FCI.)", "PEQUEÑO PERRO RUSO (RUSSKIY TOY)",
+  "PERRO DE AGUA ESPAÑOL", "PERRO DE PASTOR ALEMAN", "PERRO DE PASTOR AUSTRALIANO",
+  "PERRO DE PASTOR BELGA", "PERRO DE PASTOR BLANCO SUIZO", "ROTTWEILER",
+  "SHETLAND SHEEPDOG", "SHIBA", "SHIH TZU", "SHIKOKU", "SIBERIAN HUSKY", "SPITZ ALEMAN",
+  "ENGLISH SPRINGER SPANIEL", "TECKEL", "TERRANOVA", "THAI RIDGEBACK DOG",
+  "WELSH CORGI PEMBROKE", "YORKSHIRE TERRIER", "ZWERGPINSCHER",
+]);
+
+// Multiplicador aplicado a la puntuación de las razas destacadas.
+// >1 aumenta su probabilidad de salir como resultado frente al resto.
+const BOOST_DESTACADAS = 1.12;
+
 const ETIQ_TAMANO = {
   pequeño: "Mini / pequeño", mediano: "Mediano", grande: "Grande",
   muy_grande: "Gigante", indiferente: "Cualquier tamaño",
@@ -747,6 +809,49 @@ function urlFCI(nombreRaza) {
 const CATEGORIA_TAMANO = { pequeño: "Pequeño / mini", mediano: "Mediano", grande: "Grande", muy_grande: "Muy grande", indiferente: "Variable" };
 const ESPERANZA_VIDA = { pequeño: "12-15 años", mediano: "10-13 años", grande: "9-12 años", muy_grande: "8-10 años", indiferente: "10-13 años" };
 
+const ESPECIFICACIONES_TAMANO = {
+  pequeño: {
+    alturaMacho: "18 – 35 cm", alturaHembra: "18 – 35 cm",
+    pesoMacho: "1 – 10 kg", pesoHembra: "1 – 10 kg",
+    cachorro: "Nacimiento a 10 meses",
+    adulto: "10 meses a 8 años",
+    maduro: "8 a 12 años",
+    senior: "Desde 12 años",
+  },
+  mediano: {
+    alturaMacho: "36 – 50 cm", alturaHembra: "35 – 48 cm",
+    pesoMacho: "11 – 25 kg", pesoHembra: "10 – 23 kg",
+    cachorro: "Nacimiento a 12 meses",
+    adulto: "12 meses a 7 años",
+    maduro: "7 a 10 años",
+    senior: "Desde 10 años",
+  },
+  grande: {
+    alturaMacho: "51 – 65 cm", alturaHembra: "48 – 62 cm",
+    pesoMacho: "26 – 44 kg", pesoHembra: "24 – 40 kg",
+    cachorro: "Nacimiento a 15 meses",
+    adulto: "15 meses a 6 años",
+    maduro: "6 a 9 años",
+    senior: "Desde 9 años",
+  },
+  muy_grande: {
+    alturaMacho: "65 – 80 cm", alturaHembra: "60 – 75 cm",
+    pesoMacho: "45 – 90 kg", pesoHembra: "40 – 80 kg",
+    cachorro: "Nacimiento a 18 meses",
+    adulto: "18 meses a 5 años",
+    maduro: "5 a 8 años",
+    senior: "Desde 8 años",
+  },
+  indiferente: {
+    alturaMacho: "Variable", alturaHembra: "Variable",
+    pesoMacho: "Variable", pesoHembra: "Variable",
+    cachorro: "Nacimiento a 12 meses",
+    adulto: "12 meses a 7 años",
+    maduro: "7 a 10 años",
+    senior: "Desde 10 años",
+  },
+};
+
 function caracterRaza(raza) { return rasgosDeRaza(raza).join(" / "); }
 
 function especificidadesRaza(raza) {
@@ -836,10 +941,14 @@ function calcularResultado(resp) {
       else if (raza.vivienda === "indiferente") pts += PESOS.vivienda * 0.6;
       else { const p = puntajeEscala(["piso", "piso_con_terraza", "casa_con_jardin"], resp.vivienda, raza.vivienda); if (p !== null) pts += p * PESOS.vivienda * 0.5; }
     }
+      if (RAZAS_DESTACADAS.has(raza.nombre) && pts > 0) {
+      pts *= BOOST_DESTACADAS;
+    }
     return { nombre: raza.nombre, pts, pct: maxPts > 0 ? Math.max(0, (pts / maxPts) * 100) : 0 };
   });
 
   const ord = resultados.sort((a, b) => b.pts - a.pts);
+
   const UMBRAL = 60;
   const mejor = ord[0];
   const compatibles = ord.filter((r) => r.pct >= UMBRAL);
@@ -1042,9 +1151,18 @@ const S = {
   landingStep: { display: "flex", alignItems: "center", gap: 16, fontSize: 15, color: C.text, fontWeight: 500 },
   landingStepNum: { width: 32, height: 32, borderRadius: "50%", background: C.gold, color: C.navyDark, fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
   landingBtn: { background: C.navy, color: C.white, border: "none", borderRadius: 8, padding: "16px 42px", fontSize: 15, fontWeight: 700, letterSpacing: "0.03em", cursor: "pointer" },
-  landingRight: { flex: 1, height: 560, display: "flex", gap: 14, alignItems: "stretch" },
-  filmPanel: { flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" },
-  filmPanelActive: { flex: 2.4, border: `2px solid ${C.gold}`, background: C.navyLight, boxShadow: "0 10px 24px rgba(0,48,135,0.10)" },
+  landingRight: { flex: 1, height: 560, display: "flex", gap: 10, alignItems: "stretch" },
+  filmPanel: {
+    flexGrow: 1, flexShrink: 1, flexBasis: 0,
+    position: "relative",
+    background: C.surface,
+    border: `1px solid ${C.border}`,
+    borderRadius: 12,
+    overflow: "hidden",
+    cursor: "pointer",
+    transition: "flex-grow 0.55s cubic-bezier(.22,.9,.3,1), border-color 0.3s, box-shadow 0.3s",
+  },
+  filmPanelActive: { flexGrow: 4, border: `2px solid ${C.gold}`, boxShadow: "0 10px 24px rgba(0,48,135,0.10)" },
   detailWrap: { display: "flex", gap: 24, padding: "32px 40px 40px", alignItems: "flex-start", flexWrap: "wrap", background: C.surface },
   detailLeft: { flex: "1 1 420px", minWidth: 320, background: C.white, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" },
   detailTabs: { display: "flex", borderBottom: `1px solid ${C.border}`, padding: "0 24px" },
@@ -1059,6 +1177,20 @@ const S = {
   detailTitle: { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 19, fontWeight: 700, color: C.navyDark, margin: "0 0 14px", lineHeight: 1.35 },
   detailDesc: { fontSize: 13.5, color: C.muted, lineHeight: 1.7, margin: "0 0 22px" },
   btnFCI: { background: C.navy, color: C.white, border: "none", borderRadius: 8, padding: "13px 30px", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none" },
+
+  specsWrap: { padding: "0 40px 40px", background: C.surface },
+  specsCard: { maxWidth: 1000, margin: "0 auto", background: C.white, border: `1px solid ${C.border}`, borderRadius: 14, padding: "32px 40px" },
+  specsTitle: { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 19, fontWeight: 700, color: C.navyDark, margin: "0 0 10px" },
+  specsTitleRule: { width: 36, height: 3, background: C.gold, marginBottom: 24 },
+  specsGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, marginBottom: 28 },
+  specsColLabel: { fontSize: 13, fontWeight: 700, color: C.navyDark, marginBottom: 14, paddingBottom: 8, borderBottom: `1px solid ${C.border}` },
+  specsRowLabel: { fontSize: 11.5, fontWeight: 600, color: C.muted, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 2 },
+  specsRowValue: { fontSize: 15, color: C.text, marginBottom: 16 },
+  specsStagesGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, borderTop: `1px solid ${C.border}`, paddingTop: 24 },
+  specsStageLabel: { fontSize: 11.5, fontWeight: 600, color: C.muted, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 2 },
+  specsStageValue: { fontSize: 14, color: C.text },
+  specsNote: { fontSize: 11.5, color: C.muted, fontStyle: "italic", marginTop: 24 },
+
   fichaWrap: { background: C.white, padding: "44px 56px 56px" },
   fichaBack: { display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", color: C.navy, fontSize: 13.5, fontWeight: 600, cursor: "pointer", padding: 0, marginBottom: 28 },
   fichaHead: { display: "flex", gap: 48, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 48 },
@@ -1136,7 +1268,17 @@ export default function TestPerroIdeal() {
     </div>
   );
 
-  const Landing = () => (
+  const LANDING_PANELS = [
+  { nombre: "Golden Retriever", src: "https://images.unsplash.com/photo-1633722715463-d30f4f325e24?fm=jpg" },
+  { nombre: "Border Collie",    src: "https://img.magnific.com/premium-photo/vertical-shot-adorable-border-collie-holding-stick-forest-sunlight_181624-42671.jpg" },
+  { nombre: "Beagle",           src: "https://thumbs.dreamstime.com/b/beagle-dog-cutie-vertical-portrait-one-breed-short-red-white-black-tricolor-hair-sitting-outdoors-green-grass-96077027.jpg" },
+  { nombre: "Husky Siberiano",  src: "https://img.magnific.com/free-photo/vertical-shallow-focus-side-view-siberian-husky-dog_181624-60703.jpg" },
+  ];
+
+  const Landing = () => {
+  const [panelActivo, setPanelActivo] = useState(1);
+
+  return (
     <div style={S.landing}>
       <div style={S.landingLeft}>
         <div style={S.landingEyebrow}>RSCE · Test de razas</div>
@@ -1153,15 +1295,25 @@ export default function TestPerroIdeal() {
         <button style={S.landingBtn} onClick={irAlTest}>Realizar el test</button>
       </div>
       <div style={S.landingRight}>
-        <div style={S.filmPanel}><DogSizeIllustration size="mini" width={64} height={53} /></div>
-        <div style={{ ...S.filmPanel, ...S.filmPanelActive }}>
-          <DogSizeIllustration size="mediano" width={170} height={140} />
-        </div>
-        <div style={S.filmPanel}><DogSizeIllustration size="grande" width={64} height={53} /></div>
-        <div style={S.filmPanel}><DogSizeIllustration size="muygrande" width={64} height={53} /></div>
+        {LANDING_PANELS.map((panel, i) => (
+          <div
+            key={panel.nombre}
+            style={{ ...S.filmPanel, ...(i === panelActivo ? S.filmPanelActive : {}) }}
+            onMouseEnter={() => setPanelActivo(i)}
+            onClick={() => setPanelActivo(i)}
+          >
+            <img
+              src={panel.src}
+              alt={panel.nombre}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          </div>
+        ))}
       </div>
     </div>
   );
+};
+  
 
   const Hero = () => (
     <div style={S.hero}>
@@ -1375,6 +1527,54 @@ export default function TestPerroIdeal() {
             </div>
           </div>
         )}
+
+        {razaActual && (() => {
+  const specs = ESPECIFICACIONES_TAMANO[razaActual.tamano] || ESPECIFICACIONES_TAMANO.mediano;
+  return (
+    <div style={S.specsWrap}>
+      <div style={S.specsCard}>
+        <h3 style={S.specsTitle}>Especificaciones</h3>
+        <div style={S.specsTitleRule} />
+        <div style={S.specsGrid}>
+          <div>
+            <div style={S.specsColLabel}>Macho</div>
+            <div style={S.specsRowLabel}>Altura</div>
+            <div style={S.specsRowValue}>{specs.alturaMacho}</div>
+            <div style={S.specsRowLabel}>Peso</div>
+            <div style={S.specsRowValue}>{specs.pesoMacho}</div>
+          </div>
+          <div>
+            <div style={S.specsColLabel}>Hembra</div>
+            <div style={S.specsRowLabel}>Altura</div>
+            <div style={S.specsRowValue}>{specs.alturaHembra}</div>
+            <div style={S.specsRowLabel}>Peso</div>
+            <div style={S.specsRowValue}>{specs.pesoHembra}</div>
+          </div>
+        </div>
+        <div style={S.specsColLabel}>Etapas de vida</div>
+        <div style={S.specsStagesGrid}>
+          <div>
+            <div style={S.specsStageLabel}>Cachorro</div>
+            <div style={S.specsStageValue}>{specs.cachorro}</div>
+          </div>
+          <div>
+            <div style={S.specsStageLabel}>Adulto</div>
+            <div style={S.specsStageValue}>{specs.adulto}</div>
+          </div>
+          <div>
+            <div style={S.specsStageLabel}>Maduro</div>
+            <div style={S.specsStageValue}>{specs.maduro}</div>
+          </div>
+          <div>
+            <div style={S.specsStageLabel}>Senior</div>
+            <div style={S.specsStageValue}>{specs.senior}</div>
+          </div>
+        </div>
+        <p style={S.specsNote}>Valores aproximados según el tamaño de la raza, no específicos de {nombreFormateado}.</p>
+      </div>
+    </div>
+  );
+})()}
 
         <div style={{ background: C.white, padding: "0 0 40px", display: "flex", justifyContent: "center" }}>
           <button style={S.btnPrimary} onClick={reiniciar}>Repetir el test</button>
