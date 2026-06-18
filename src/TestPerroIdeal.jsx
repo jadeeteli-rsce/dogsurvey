@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import razas from "./razas.json";
 import imagenesLocales from "./imagenesLocales.json";
 
+
+
 const NO_IMPORTA = "no_importa";
 
 // ─── Paleta RSCE ────────────────────────────────────────────────────────────
@@ -24,7 +26,6 @@ const C = {
   muted:      "#6b7a99",
 };
 
-// ─── SVG: perro a escala (persona + perro) ──────────────────────────────────
 const DOG_SIZES = {
   mini:      { w: 28, h: 24 },
   pequeno:   { w: 36, h: 30 },
@@ -56,12 +57,10 @@ const DogSizeIllustration = ({ size, width = 80, height = 66 }) => {
   );
 };
 
-// ─── Imagen de raza: primero carpeta local /perros, luego API como respaldo ──
-const imagenCache = {}; // nombreRaza -> url | null (null = sin imagen encontrada)
-const galeriaCache = {}; // nombreRaza -> string[] (urls) | null
+const imagenCache = {};
+const galeriaCache = {};
 
 function urlFotoLocal(nombreArchivo) {
-  // codifica espacios y caracteres especiales (ej. "akita mericano.jpg", "ALANO ESPAÑOL.jpg")
   return "/perros/" + nombreArchivo.split("/").map(encodeURIComponent).join("/");
 }
 
@@ -73,7 +72,7 @@ function fotosLocalesDeRaza(nombreRaza) {
 
 function nombreParaBusqueda(nombre) {
   return nombre
-    .replace(/\s*\(.*?\)\s*/g, "") // quita anotaciones tipo "(NO ACEPTADA FCI)"
+    .replace(/\s*\(.*?\)\s*/g, "")
     .trim()
     .toLowerCase()
     .replace(/\b\w/g, (c) => c.toUpperCase());
@@ -90,7 +89,6 @@ async function buscarImagenRaza(nombreRaza) {
 
   const query = nombreParaBusqueda(nombreRaza);
 
-  // 1) Intento directo: página de Wikipedia con ese título exacto
   try {
     const res = await fetch(
       `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(query)}&prop=pageimages&format=json&pithumbsize=640&origin=*`
@@ -105,7 +103,6 @@ async function buscarImagenRaza(nombreRaza) {
     /* sigue al siguiente intento */
   }
 
-  // 2) Fallback: búsqueda en Wikimedia Commons
   try {
     const url =
       "https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrlimit=1&prop=imageinfo&iiprop=url&iiurlwidth=640&format=json&origin=*&gsrsearch=" +
@@ -123,7 +120,6 @@ async function buscarImagenRaza(nombreRaza) {
   }
 }
 
-// Devuelve varias fotos distintas de la raza (galería), buscando en Wikimedia Commons.
 async function buscarGaleriaRaza(nombreRaza, max = 5) {
   if (galeriaCache[nombreRaza] !== undefined) return galeriaCache[nombreRaza];
 
@@ -146,7 +142,6 @@ async function buscarGaleriaRaza(nombreRaza, max = 5) {
     const urls = pages
       .map((p) => p?.imageinfo?.[0]?.thumburl || p?.imageinfo?.[0]?.url)
       .filter(Boolean)
-      // descarta logos/iconos/escudos que a veces aparecen en resultados de Commons
       .filter((u) => !/logo|icon|crest|map|flag/i.test(u))
       .slice(0, max);
 
@@ -198,7 +193,6 @@ const BreedImage = ({ nombre, size = 96, rounded = 12 }) => {
   );
 };
 
-// Galería de fotos de raza: imagen grande + miniaturas navegables (estilo "ficha de producto")
 const BreedGallery = ({ nombre, width = 360, height = 280 }) => {
   const [fotos, setFotos] = useState(galeriaCache[nombre] ?? undefined);
   const [idx, setIdx] = useState(0);
@@ -222,7 +216,6 @@ const BreedGallery = ({ nombre, width = 360, height = 280 }) => {
   const sinFotos = fotos === null || (fotos && validas.length === 0);
 
   if (sinFotos || fotos === undefined) {
-    // sin galería disponible (o aún cargando) -> imagen única con fallback
     return <BreedImage nombre={nombre} size={Math.min(width, height)} rounded={16} />;
   }
 
@@ -308,7 +301,6 @@ const BreedGallery = ({ nombre, width = 360, height = 280 }) => {
   );
 };
 
-// Avatar circular con anillo de progreso (compatibilidad) - estilo selector de razas
 const BreedAvatar = ({ nombre, pct, size = 64, activo = false, onClick }) => {
   const grosor = Math.max(3, size * 0.045);
   const r = (size - grosor * 2) / 2;
@@ -379,10 +371,10 @@ const HistoriaRaza = ({ nombre }) => {
     return () => { activo = false; };
   }, [nombre]);
 
-  if (!texto) return null; // sin datos o aún cargando: no renderiza nada
+  if (!texto) return null;
 
   return (
-    <div style={{ background: C.white, padding: "8px 56px 48px" }}>
+    <div style={{ background: C.white, padding: "8px 56px 48px", textAlign: "center" }}>
       <p style={{ fontSize: 12, color: C.goldDark, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 14 }}>
         Historia de la raza
       </p>
@@ -419,15 +411,15 @@ const CharacteristicsPanel = ({ raza }) => {
       style={{
         fontSize: 15, fontWeight: 600, background: "none", border: "none", cursor: "pointer",
         fontFamily: "inherit", padding: "0 0 10px",
-        color: subtab === key ? C.red : C.muted,
-        borderBottom: `2px solid ${subtab === key ? C.red : "transparent"}`,
+        color: subtab === key ? C.navyDark : C.muted,
+        borderBottom: `2px solid ${subtab === key ? C.navyDark : "transparent"}`,
       }}
     >{label}</button>
   );
 
   const Row = ({ label, value }) => (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-      <span style={{ fontSize: 14, color: C.red, fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: 14, color: C.navyDark, fontWeight: 500 }}>{label}</span>
       <StarRating value={value} />
     </div>
   );
@@ -451,7 +443,7 @@ const CharacteristicsPanel = ({ raza }) => {
       ) : (
         <div style={{ maxWidth: 600, margin: "0 auto 40px", display: "flex", flexDirection: "column", gap: 10 }}>
           {especificidades.map((linea, i) => (
-            <p key={i} style={{ fontSize: 14, color: C.text, margin: 0 }}>{linea}</p>
+            <p key={i} style={{ fontSize: 17, fontWeight: 500, color: "#6b7a99", margin: 0 }}>{linea}</p>
           ))}
         </div>
       )}
@@ -498,7 +490,6 @@ const ActivityIcon = ({ level }) => {
   );
 };
 
-// ─── SVG: tipo de vivienda ───────────────────────────────────────────────────
 const HouseIcon = ({ type }) => {
   if (type === "piso") return (
     <svg viewBox="0 0 56 56" width="44" height="44" xmlns="http://www.w3.org/2000/svg">
@@ -546,8 +537,8 @@ const Star = ({ filled }) => (
   <svg viewBox="0 0 20 20" width="15" height="15" style={{ marginRight: 1 }}>
     <path
       d="M10 1.5l2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-3-5.3 3 1.1-6L1.4 7.9l6-.8z"
-      fill={filled ? C.red : "none"}
-      stroke={C.red}
+      fill={filled ? C.gold : "none"}
+      stroke={C.gold}
       strokeWidth="1"
     />
   </svg>
@@ -559,45 +550,26 @@ const StarRating = ({ value = 0, max = 5 }) => (
   </div>
 );
 
-// ─── Rasgos cortos de la raza (estilo "Atento, Guardián, Amoroso") ──────────
 function rasgosDeRaza(raza) {
   const candidatos = [];
-
-  // Sociabilidad / temperamento social
   if (raza.sociabilidad === "muy_sociable") candidatos.push("Amoroso");
   else if (raza.sociabilidad === "sociable") candidatos.push("Sociable");
   else if (raza.sociabilidad === "reservado") candidatos.push("Reservado");
   else if (raza.sociabilidad === "poco_sociable") candidatos.push("Independiente");
-
-  // Protección / vigilancia
   if (raza.proteccion === "no_comparte_nada") candidatos.push("Guardián");
   else if (raza.proteccion === "comparte_mucho") candidatos.push("Confiado");
-
-  // Energía
   if (raza.energia === "muy_alto") candidatos.push("Enérgico");
   else if (raza.energia === "alto") candidatos.push("Activo");
   else if (raza.energia === "bajo") candidatos.push("Tranquilo");
-
-  // Juego
   if (raza.juego === "juguetón") candidatos.push("Juguetón");
-
-  // Adaptabilidad
   if (raza.adaptabilidad === "adaptable") candidatos.push("Adaptable");
-
-  // Ladridos / atención
   if (raza.ladridos === "alto") candidatos.push("Atento");
-
-  // Entrenamiento
   if (raza.entrenamiento === "muy_alto" || raza.entrenamiento === "alto") candidatos.push("Inteligente");
-
-  // Niños
   if (raza.ninos === "muy_recomendado") candidatos.push("Familiar");
-
   const unicos = [...new Set(candidatos)];
   return unicos.length > 0 ? unicos.slice(0, 3) : ["Leal", "Compañero", "Equilibrado"];
 }
 
-// ─── Escalas y pesos ─────────────────────────────────────────────────────────
 const ESCALA_ENERGIA      = ["bajo", "medio", "alto", "muy_alto"];
 const ESCALA_TAMANO       = ["pequeño", "mediano", "grande", "muy_grande"];
 const ESCALA_SOCIABILIDAD = ["poco_sociable", "reservado", "sociable", "muy_sociable"];
@@ -605,9 +577,8 @@ const ESCALA_PROTECCION   = ["no_comparte_nada", "comparte_poco", "comparte", "c
 const ESCALA_ENTRENAMIENTO= ["nada", "bajo", "normal", "alto", "muy_alto"];
 const ESCALA_ASEO         = ["mensual", "quincenal", "semanal", "frecuente", "diario"];
 const ESCALA_MUDA         = ["sin_muda", "baja", "media", "alta"];
-
-const ESCALA_LADRIDOS = ["bajo", "medio", "alto"]; // ajusta si tu JSON usa otros valores
-const ESCALA_RECOMENDACION = ["no_recomendado", "poco_recomendado", "recomendado", "muy_recomendado"];
+const ESCALA_LADRIDOS     = ["bajo", "medio", "alto"];
+const ESCALA_RECOMENDACION= ["no_recomendado", "poco_recomendado", "recomendado", "muy_recomendado"];
 
 function escalaAEstrellas(escala, valor, defecto = 3) {
   const i = escala.indexOf(valor);
@@ -622,21 +593,19 @@ function caracteristicasRaza(raza) {
   if (raza.energia === "muy_alto") apartamento -= 1;
   if (raza.energia === "bajo") apartamento += 1;
   if (raza.tamano === "muy_grande") apartamento -= 1;
-
   let quedarseSolo = 3;
   if (raza.sociabilidad === "poco_sociable" || raza.sociabilidad === "reservado") quedarseSolo += 1;
   if (raza.sociabilidad === "muy_sociable") quedarseSolo -= 1;
   if (raza.proteccion === "no_comparte_nada") quedarseSolo -= 1;
-
   return {
-    baboseo:       escalaAEstrellas(["bajo", "medio", "alto"], raza.baboseo, 2),        // no existe aún en tu JSON
+    baboseo:       escalaAEstrellas(["bajo", "medio", "alto"], raza.baboseo, 2),
     aseo:          escalaAEstrellas(ESCALA_ASEO, raza.aseo, 3),
     mudaPelo:      escalaAEstrellas(ESCALA_MUDA, raza.mudaPelo, 3),
     ladridos:      escalaAEstrellas(ESCALA_LADRIDOS, raza.ladridos, 3),
     energia:       escalaAEstrellas(ESCALA_ENERGIA, raza.energia, 3),
     otrasMascotas: escalaAEstrellas(ESCALA_RECOMENDACION, raza.otrasMascotas, 3),
-    calor:         escalaAEstrellas(["bajo", "medio", "alto"], raza.toleranciaCalor, 3), // idem
-    frio:          escalaAEstrellas(["bajo", "medio", "alto"], raza.toleranciaFrio, 3),  // idem
+    calor:         escalaAEstrellas(["bajo", "medio", "alto"], raza.toleranciaCalor, 3),
+    frio:          escalaAEstrellas(["bajo", "medio", "alto"], raza.toleranciaFrio, 3),
     apartamento:   Math.min(5, Math.max(1, apartamento)),
     quedarseSolo:  Math.min(5, Math.max(1, quedarseSolo)),
     familiar:      escalaAEstrellas(ESCALA_RECOMENDACION, raza.ninos, 3),
@@ -649,7 +618,6 @@ const PESOS = {
   tuvo_perro: 1, vivienda: 4,
 };
 
-// ─── Etiquetas legibles para valores de razas.json ───────────────────────────
 const ETIQ_TAMANO = {
   pequeño: "Mini / pequeño", mediano: "Mediano", grande: "Grande",
   muy_grande: "Gigante", indiferente: "Cualquier tamaño",
@@ -680,7 +648,6 @@ const ETIQ_VIVIENDA = {
   casa_con_jardin: "Casa con jardín amplio", indiferente: "Cualquier vivienda",
 };
 
-// Nivel de cuidados veterinarios: no existe en razas.json, se infiere de mudaPelo + estimulacion
 function nivelVeterinario(raza) {
   const muda = { sin_muda: 0, baja: 0.5, media: 1, alta: 1.5 }[raza.mudaPelo] ?? 1;
   const estim = { bajo: 0, medio: 1, alto: 2, muy_alto: 3 }[raza.estimulacion] ?? 1;
@@ -691,7 +658,6 @@ function nivelVeterinario(raza) {
 }
 const ETIQ_VETERINARIO = { bajo: "Bajo", medio: "Medio", alto: "Alto" };
 
-// ¿La respuesta del usuario "acierta" con el valor real de la raza? true | false | null (no aplica/no comparable)
 function comparar(escala, vU, vR, tolerancia = 0) {
   if (!vU || vU === NO_IMPORTA || !vR) return null;
   const i = escala.indexOf(vU), j = escala.indexOf(vR);
@@ -699,9 +665,7 @@ function comparar(escala, vU, vR, tolerancia = 0) {
   return Math.abs(i - j) <= tolerancia;
 }
 
-// Construye las filas de cada pestaña: { label, valor (texto a mostrar), acierto: true/false/null }
 function construirFilasResultado(raza, resp) {
-  const tamanoRazaIdx = raza.tamano === "indiferente" ? null : ESCALA_TAMANO.indexOf(raza.tamano);
   const tamanoUsuarioOk =
     resp.tamano === NO_IMPORTA || !resp.tamano
       ? null
@@ -714,25 +678,14 @@ function construirFilasResultado(raza, resp) {
 
   return {
     perfil: [
-      {
-        label: "Tamaño",
-        valor: ETIQ_TAMANO[raza.tamano] || raza.tamano,
-        acierto: tamanoUsuarioOk,
-      },
-      {
-        label: "Nivel de energía",
-        valor: ETIQ_ENERGIA[raza.energia] || raza.energia,
-        acierto: comparar(ESCALA_ENERGIA, resp.actividad, raza.energia, 0),
-      },
+      { label: "Tamaño", valor: ETIQ_TAMANO[raza.tamano] || raza.tamano, acierto: tamanoUsuarioOk },
+      { label: "Nivel de energía", valor: ETIQ_ENERGIA[raza.energia] || raza.energia, acierto: comparar(ESCALA_ENERGIA, resp.actividad, raza.energia, 0) },
     ],
     temperamento: [
       {
         label: "Apto para niños",
         valor: ETIQ_NINOS[raza.ninos] || raza.ninos,
-        acierto:
-          !resp.ninos || resp.ninos === "sin_ninos"
-            ? null
-            : raza.ninos === "muy_recomendado" || raza.ninos === "recomendado",
+        acierto: !resp.ninos || resp.ninos === "sin_ninos" ? null : raza.ninos === "muy_recomendado" || raza.ninos === "recomendado",
       },
       {
         label: "Temperamento con las personas",
@@ -749,124 +702,53 @@ function construirFilasResultado(raza, resp) {
       {
         label: "Temperamento con otros perros",
         valor: ETIQ_OTRAS_MASCOTAS[raza.otrasMascotas] || raza.otrasMascotas,
-        acierto:
-          resp.otros_perros !== "si"
-            ? null
-            : raza.otrasMascotas === "muy_recomendado" || raza.otrasMascotas === "recomendado",
+        acierto: resp.otros_perros !== "si" ? null : raza.otrasMascotas === "muy_recomendado" || raza.otrasMascotas === "recomendado",
       },
     ],
     cuidados: [
-      {
-        label: "Necesidades educativas",
-        valor: ETIQ_ENTRENAMIENTO[raza.entrenamiento] || raza.entrenamiento,
-        acierto: comparar(ESCALA_ENTRENAMIENTO, resp.entrenamiento, raza.entrenamiento, 1),
-      },
-      {
-        label: "Cuidados de aseo",
-        valor: ETIQ_ASEO[raza.aseo] || raza.aseo,
-        acierto: comparar(ESCALA_ASEO, resp.aseo, raza.aseo, 1),
-      },
+      { label: "Necesidades educativas", valor: ETIQ_ENTRENAMIENTO[raza.entrenamiento] || raza.entrenamiento, acierto: comparar(ESCALA_ENTRENAMIENTO, resp.entrenamiento, raza.entrenamiento, 1) },
+      { label: "Cuidados de aseo", valor: ETIQ_ASEO[raza.aseo] || raza.aseo, acierto: comparar(ESCALA_ASEO, resp.aseo, raza.aseo, 1) },
       {
         label: "Nivel de cuidados veterinarios",
         valor: ETIQ_VETERINARIO[vetNivel],
-        acierto:
-          !resp.salud || resp.salud === NO_IMPORTA
-            ? null
-            : comparar(ESCALA_VET, resp.salud === "alto" ? "alto" : resp.salud === "bajo" ? "bajo" : "medio", vetNivel, 0),
+        acierto: !resp.salud || resp.salud === NO_IMPORTA ? null : comparar(ESCALA_VET, resp.salud === "alto" ? "alto" : resp.salud === "bajo" ? "bajo" : "medio", vetNivel, 0),
       },
     ],
     acercaDeTi: [
       {
         label: "Adaptado para una primera experiencia",
         valor: raza.entrenamiento === "bajo" || raza.entrenamiento === "nada" ? "Sí" : "Requiere experiencia previa",
-        acierto:
-          resp.tuvo_perro !== "primerizo"
-            ? null
-            : raza.entrenamiento === "bajo" || raza.entrenamiento === "nada",
+        acierto: resp.tuvo_perro !== "primerizo" ? null : raza.entrenamiento === "bajo" || raza.entrenamiento === "nada",
       },
       {
         label: "Requisitos del entorno vital",
         valor: ETIQ_VIVIENDA[raza.vivienda] || raza.vivienda,
-        acierto:
-          resp.vivienda === NO_IMPORTA || !resp.vivienda
-            ? null
-            : raza.vivienda === "indiferente"
-              ? true
-              : comparar(["piso", "piso_con_terraza", "casa_con_jardin"], resp.vivienda, raza.vivienda, 0),
+        acierto: resp.vivienda === NO_IMPORTA || !resp.vivienda ? null : raza.vivienda === "indiferente" ? true : comparar(["piso", "piso_con_terraza", "casa_con_jardin"], resp.vivienda, raza.vivienda, 0),
       },
     ],
   };
 }
 
-// ─── Descripción en prosa generada a partir de los atributos del JSON ───────
 function descripcionGenerada(raza, nombreFormateado) {
-  const tamanoTxt = {
-    pequeño: "de tamaño pequeño", mediano: "de tamaño mediano",
-    grande: "de tamaño grande", muy_grande: "de gran tamaño",
-    indiferente: "de tamaño variable",
-  }[raza.tamano] || "";
-
-  const energiaTxt = {
-    bajo: "un nivel de energía tranquilo, feliz con paseos moderados",
-    medio: "un nivel de energía moderado, con necesidad de ejercicio regular",
-    alto: "un nivel de energía alto, que agradece largas sesiones de actividad",
-    muy_alto: "un nivel de energía muy alto, ideal para personas muy activas",
-  }[raza.energia] || "";
-
-  const socialTxt = {
-    muy_sociable: "Es una raza muy sociable y afectuosa con las personas",
-    sociable: "Es una raza sociable que disfruta de la compañía humana",
-    reservado: "Es una raza algo reservada, que necesita tiempo para confiar",
-    poco_sociable: "Es una raza independiente y selectiva con los desconocidos",
-  }[raza.sociabilidad] || "";
-
-  const aseoTxt = {
-    mensual: "sus necesidades de aseo son mínimas",
-    quincenal: "requiere un aseo moderado",
-    semanal: "requiere cepillado semanal",
-    frecuente: "necesita cuidados de aseo frecuentes",
-    diario: "necesita cuidados de aseo intensivos y regulares",
-  }[raza.aseo] || "";
-
-  const ninosTxt = {
-    muy_recomendado: "Se considera muy recomendada para hogares con niños.",
-    recomendado: "Se considera recomendada para la convivencia con niños.",
-    poco_recomendado: "Su convivencia con niños requiere supervisión.",
-    no_recomendado: "No suele recomendarse para hogares con niños pequeños.",
-  }[raza.ninos] || "";
-
-  return (
-    `El ${nombreFormateado} es un perro ${tamanoTxt}, con ${energiaTxt}. ` +
-    `${socialTxt}, y ${aseoTxt}. ${ninosTxt}`
-  ).replace(/\s+/g, " ").trim();
+  const tamanoTxt = { pequeño: "de tamaño pequeño", mediano: "de tamaño mediano", grande: "de tamaño grande", muy_grande: "de gran tamaño", indiferente: "de tamaño variable" }[raza.tamano] || "";
+  const energiaTxt = { bajo: "un nivel de energía tranquilo, feliz con paseos moderados", medio: "un nivel de energía moderado, con necesidad de ejercicio regular", alto: "un nivel de energía alto, que agradece largas sesiones de actividad", muy_alto: "un nivel de energía muy alto, ideal para personas muy activas" }[raza.energia] || "";
+  const socialTxt = { muy_sociable: "Es una raza muy sociable y afectuosa con las personas", sociable: "Es una raza sociable que disfruta de la compañía humana", reservado: "Es una raza algo reservada, que necesita tiempo para confiar", poco_sociable: "Es una raza independiente y selectiva con los desconocidos" }[raza.sociabilidad] || "";
+  const aseoTxt = { mensual: "sus necesidades de aseo son mínimas", quincenal: "requiere un aseo moderado", semanal: "requiere cepillado semanal", frecuente: "necesita cuidados de aseo frecuentes", diario: "necesita cuidados de aseo intensivos y regulares" }[raza.aseo] || "";
+  const ninosTxt = { muy_recomendado: "Se considera muy recomendada para hogares con niños.", recomendado: "Se considera recomendada para la convivencia con niños.", poco_recomendado: "Su convivencia con niños requiere supervisión.", no_recomendado: "No suele recomendarse para hogares con niños pequeños." }[raza.ninos] || "";
+  return (`El ${nombreFormateado} es un perro ${tamanoTxt}, con ${energiaTxt}. ${socialTxt}, y ${aseoTxt}. ${ninosTxt}`).replace(/\s+/g, " ").trim();
 }
 
-// URL de búsqueda de la FCI por inicial del nombre de la raza (la FCI no expone
-// una ficha por nombre, solo el listado de razas que empiezan por cada letra).
 function urlFCI(nombreRaza) {
   const limpio = nombreRaza.replace(/\s*\(.*?\)\s*/g, "").trim();
   const inicial = limpio.charAt(0).toUpperCase();
   return `https://www.fci.be/Nomenclature/races.aspx?init=${encodeURIComponent(inicial)}`;
 }
 
-// ─── Categoría de tamaño legible para la ficha de detalle ───────────────────
-const CATEGORIA_TAMANO = {
-  pequeño: "Pequeño / mini", mediano: "Mediano",
-  grande: "Grande", muy_grande: "Muy grande", indiferente: "Variable",
-};
+const CATEGORIA_TAMANO = { pequeño: "Pequeño / mini", mediano: "Mediano", grande: "Grande", muy_grande: "Muy grande", indiferente: "Variable" };
+const ESPERANZA_VIDA = { pequeño: "12-15 años", mediano: "10-13 años", grande: "9-12 años", muy_grande: "8-10 años", indiferente: "10-13 años" };
 
-// Esperanza de vida aproximada según tamaño (orientativa, no viene en razas.json)
-const ESPERANZA_VIDA = {
-  pequeño: "12-15 años", mediano: "10-13 años",
-  grande: "9-12 años", muy_grande: "8-10 años", indiferente: "10-13 años",
-};
+function caracterRaza(raza) { return rasgosDeRaza(raza).join(" / "); }
 
-// Tres rasgos de carácter cortos (reutiliza la misma lógica que rasgosDeRaza)
-function caracterRaza(raza) {
-  return rasgosDeRaza(raza).join(" / ");
-}
-
-// "Especificidades de la raza": bloque de datos técnicos
 function especificidadesRaza(raza) {
   return [
     `Categoría de tamaño: ${CATEGORIA_TAMANO[raza.tamano] || raza.tamano}`,
@@ -875,29 +757,21 @@ function especificidadesRaza(raza) {
   ];
 }
 
-// "Hechos clave": frases cortas inferidas de los campos del JSON
 function hechosClave(raza) {
   const hechos = [];
-
   if (raza.aseo === "mensual" || raza.aseo === "quincenal") hechos.push("Requiere cuidados de aseo mínimos");
   else if (raza.aseo === "diario") hechos.push("Necesita aseo diario");
-
   if (raza.entrenamiento === "nada" || raza.entrenamiento === "bajo") hechos.push("Necesita poco entrenamiento");
   else if (raza.entrenamiento === "muy_alto") hechos.push("Requiere entrenamiento intensivo");
-
   if (raza.vivienda === "piso" || raza.vivienda === "indiferente") hechos.push("Jardín no esencial");
   else if (raza.vivienda === "casa_con_jardin") hechos.push("Necesita jardín amplio");
-
   if (raza.energia === "bajo" || raza.energia === "medio") hechos.push("Se adapta bien a la vida tranquila en casa");
   else if (raza.energia === "muy_alto") hechos.push("Necesita mucho ejercicio diario");
-
   if (raza.mudaPelo === "sin_muda" || raza.mudaPelo === "baja") hechos.push("Muda de pelo baja");
   else if (raza.mudaPelo === "alta") hechos.push("Muda de pelo abundante");
-
   if (raza.ninos === "muy_recomendado") hechos.push("Excelente con niños");
   if (raza.otrasMascotas === "muy_recomendado") hechos.push("Se lleva bien con otras mascotas");
   if (raza.ladridos === "bajo") hechos.push("Poco ladrador");
-
   return hechos.slice(0, 5);
 }
 
@@ -909,29 +783,21 @@ function puntajeEscala(escala, vU, vR) {
 }
 
 function calcularResultado(resp) {
-  const maxPts = Object.entries(PESOS).reduce(
-    (a, [k, p]) => (resp[k] === NO_IMPORTA ? a : a + p), 0
-  );
+  const maxPts = Object.entries(PESOS).reduce((a, [k, p]) => (resp[k] === NO_IMPORTA ? a : a + p), 0);
 
   const resultados = razas.map((raza) => {
     let pts = 0;
-
-    // Tamaño
     if (resp.tamano !== NO_IMPORTA) {
       if (raza.tamano === "indiferente") pts += PESOS.tamano;
       else { const p = puntajeEscala(ESCALA_TAMANO, resp.tamano, raza.tamano); if (p !== null) pts += p * PESOS.tamano; }
     }
-
-    // Actividad
     const pEn = puntajeEscala(ESCALA_ENERGIA, resp.actividad, raza.energia);
     if (pEn !== null) pts += pEn * PESOS.actividad;
-
-    // Niños
     if (resp.ninos === "convive_siempre") {
-      if (raza.ninos === "muy_recomendado")   pts += PESOS.ninos;
-      else if (raza.ninos === "recomendado")  pts += PESOS.ninos * 0.6;
+      if (raza.ninos === "muy_recomendado") pts += PESOS.ninos;
+      else if (raza.ninos === "recomendado") pts += PESOS.ninos * 0.6;
       else if (raza.ninos === "poco_recomendado") pts -= PESOS.ninos * 0.5;
-      else if (raza.ninos === "no_recomendado")   pts -= PESOS.ninos * 1.5;
+      else if (raza.ninos === "no_recomendado") pts -= PESOS.ninos * 1.5;
     } else if (resp.ninos === "alguna_visita") {
       if (raza.ninos === "muy_recomendado" || raza.ninos === "recomendado") pts += PESOS.ninos * 0.7;
       else if (raza.ninos === "no_recomendado") pts -= PESOS.ninos * 0.5;
@@ -939,84 +805,47 @@ function calcularResultado(resp) {
     } else {
       pts += PESOS.ninos * 0.3;
     }
-
-    // Temperamento
-    if (resp.temperamento === "amistoso") {
-      const p = puntajeEscala(ESCALA_SOCIABILIDAD, "muy_sociable", raza.sociabilidad); if (p !== null) pts += p * PESOS.temperamento;
-    } else if (resp.temperamento === "independiente") {
-      const p = puntajeEscala(ESCALA_SOCIABILIDAD, "reservado", raza.sociabilidad); if (p !== null) pts += p * PESOS.temperamento;
-    } else if (resp.temperamento === "protector") {
-      const p = puntajeEscala(ESCALA_PROTECCION, "comparte_mucho", raza.proteccion); if (p !== null) pts += p * PESOS.temperamento;
-    } else if (resp.temperamento === "timido") {
-      const p = puntajeEscala(ESCALA_SOCIABILIDAD, "poco_sociable", raza.sociabilidad); if (p !== null) pts += p * PESOS.temperamento;
-    }
-
-    // Entrenamiento + experiencia
+    if (resp.temperamento === "amistoso") { const p = puntajeEscala(ESCALA_SOCIABILIDAD, "muy_sociable", raza.sociabilidad); if (p !== null) pts += p * PESOS.temperamento; }
+    else if (resp.temperamento === "independiente") { const p = puntajeEscala(ESCALA_SOCIABILIDAD, "reservado", raza.sociabilidad); if (p !== null) pts += p * PESOS.temperamento; }
+    else if (resp.temperamento === "protector") { const p = puntajeEscala(ESCALA_PROTECCION, "comparte_mucho", raza.proteccion); if (p !== null) pts += p * PESOS.temperamento; }
+    else if (resp.temperamento === "timido") { const p = puntajeEscala(ESCALA_SOCIABILIDAD, "poco_sociable", raza.sociabilidad); if (p !== null) pts += p * PESOS.temperamento; }
     const pAd = puntajeEscala(ESCALA_ENTRENAMIENTO, resp.entrenamiento, raza.entrenamiento);
     if (pAd !== null) pts += pAd * PESOS.entrenamiento;
     if (resp.tuvo_perro === "primerizo") {
       if (raza.entrenamiento === "muy_alto") pts -= PESOS.tuvo_perro * 2;
       else if (raza.entrenamiento === "alto") pts -= PESOS.tuvo_perro;
       else pts += PESOS.tuvo_perro * 0.5;
-    } else {
-      pts += PESOS.tuvo_perro * 0.5;
-    }
-
-    // Aseo
+    } else { pts += PESOS.tuvo_perro * 0.5; }
     const pAs = puntajeEscala(ESCALA_ASEO, resp.aseo, raza.aseo);
     if (pAs !== null) pts += pAs * PESOS.aseo;
-
-    // Salud / muda
     if (resp.salud !== NO_IMPORTA) {
-      if (resp.salud === "bajo") {
-        const p = puntajeEscala(ESCALA_MUDA, "sin_muda", raza.mudaPelo); if (p !== null) pts += p * PESOS.salud;
-      } else if (resp.salud === "alto") {
-        pts += PESOS.salud * 0.5;
-      } else {
-        const p = puntajeEscala(ESCALA_MUDA, "media", raza.mudaPelo); if (p !== null) pts += p * PESOS.salud;
-      }
+      if (resp.salud === "bajo") { const p = puntajeEscala(ESCALA_MUDA, "sin_muda", raza.mudaPelo); if (p !== null) pts += p * PESOS.salud; }
+      else if (resp.salud === "alto") { pts += PESOS.salud * 0.5; }
+      else { const p = puntajeEscala(ESCALA_MUDA, "media", raza.mudaPelo); if (p !== null) pts += p * PESOS.salud; }
     }
-
-    // Otros perros
     if (resp.otros_perros === "si") {
-      if (raza.otrasMascotas === "muy_recomendado")   pts += PESOS.otros_perros;
-      else if (raza.otrasMascotas === "recomendado")  pts += PESOS.otros_perros * 0.6;
-      else if (raza.otrasMascotas === "no_recomendado")   pts -= PESOS.otros_perros * 1.5;
+      if (raza.otrasMascotas === "muy_recomendado") pts += PESOS.otros_perros;
+      else if (raza.otrasMascotas === "recomendado") pts += PESOS.otros_perros * 0.6;
+      else if (raza.otrasMascotas === "no_recomendado") pts -= PESOS.otros_perros * 1.5;
       else if (raza.otrasMascotas === "poco_recomendado") pts -= PESOS.otros_perros * 0.5;
     }
-
-    // Vivienda
     if (resp.vivienda !== NO_IMPORTA) {
       if (resp.vivienda === "piso" && (raza.tamano === "grande" || raza.tamano === "muy_grande")) pts -= PESOS.vivienda * 0.75;
       if (resp.vivienda === "piso" && raza.energia === "muy_alto") pts -= PESOS.vivienda * 0.5;
       if (raza.vivienda === resp.vivienda) pts += PESOS.vivienda;
       else if (raza.vivienda === "indiferente") pts += PESOS.vivienda * 0.6;
-      else {
-        const orden = ["piso", "piso_con_terraza", "casa_con_jardin"];
-        const p = puntajeEscala(orden, resp.vivienda, raza.vivienda);
-        if (p !== null) pts += p * PESOS.vivienda * 0.5;
-      }
+      else { const p = puntajeEscala(["piso", "piso_con_terraza", "casa_con_jardin"], resp.vivienda, raza.vivienda); if (p !== null) pts += p * PESOS.vivienda * 0.5; }
     }
-
-    return {
-      nombre: raza.nombre,
-      pts,
-      pct: maxPts > 0 ? Math.max(0, (pts / maxPts) * 100) : 0,
-    };
+    return { nombre: raza.nombre, pts, pct: maxPts > 0 ? Math.max(0, (pts / maxPts) * 100) : 0 };
   });
 
   const ord = resultados.sort((a, b) => b.pts - a.pts);
   const UMBRAL = 60;
   const mejor = ord[0];
   const compatibles = ord.filter((r) => r.pct >= UMBRAL);
-  return {
-    mejor,
-    alternativas: compatibles.slice(1, 4),
-    recomendarPeluche: !mejor || mejor.pct < UMBRAL,
-  };
+  return { mejor, alternativas: compatibles.slice(1, 4), recomendarPeluche: !mejor || mejor.pct < UMBRAL };
 }
 
-// ─── Contenido de preguntas ──────────────────────────────────────────────────
 const ASIDE_TIPS = [
   "El tamaño no siempre determina el nivel de energía de un perro.",
   "La socialización temprana es clave para cualquier raza.",
@@ -1032,346 +861,226 @@ const ASIDE_TIPS = [
 
 const PREGUNTAS = [
   {
-    seccion: "Perfil",
-    key: "tamano",
+    seccion: "Perfil", key: "tamano",
     titulo: "¿Qué tamaño de perro te gustaría tener?",
     desc: "El tamaño influye en el espacio que necesita, los costes de alimentación y veterinario, y su adaptación a tu vivienda.",
-    hasIcon: true,
-    cols: 3,
+    hasIcon: true, cols: 3,
     opciones: [
-      { label: "Miniatura", sub: "Menos de 4 kg",  value: "pequeño",    icon: <DogSizeIllustration size="mini" /> },
-      { label: "Mini",      sub: "De 4 a 10 kg",   value: "pequeño",    icon: <DogSizeIllustration size="pequeno" /> },
-      { label: "Mediano",   sub: "De 11 a 25 kg",  value: "mediano",    icon: <DogSizeIllustration size="mediano" /> },
-      { label: "Maxi",      sub: "De 26 a 44 kg",  value: "grande",     icon: <DogSizeIllustration size="grande" /> },
-      { label: "Gigante",   sub: "Más de 45 kg",   value: "muy_grande", icon: <DogSizeIllustration size="muygrande" /> },
-      { label: "No importa",sub: "Cualquier tamaño", value: NO_IMPORTA, icon: <DogSizeIllustration size="noImporta" /> },
+      { label: "Miniatura", sub: "Menos de 4 kg",    value: "pequeño",    icon: <DogSizeIllustration size="mini" /> },
+      { label: "Mini",      sub: "De 4 a 10 kg",     value: "pequeño",    icon: <DogSizeIllustration size="pequeno" /> },
+      { label: "Mediano",   sub: "De 11 a 25 kg",    value: "mediano",    icon: <DogSizeIllustration size="mediano" /> },
+      { label: "Maxi",      sub: "De 26 a 44 kg",    value: "grande",     icon: <DogSizeIllustration size="grande" /> },
+      { label: "Gigante",   sub: "Más de 45 kg",     value: "muy_grande", icon: <DogSizeIllustration size="muygrande" /> },
+      { label: "No importa",sub: "Cualquier tamaño", value: NO_IMPORTA,   icon: <DogSizeIllustration size="noImporta" /> },
     ],
   },
   {
-    seccion: "Perfil",
-    key: "actividad",
+    seccion: "Perfil", key: "actividad",
     titulo: "¿Cuánta actividad física quieres compartir con tu perro?",
     desc: "Cada raza tiene necesidades de ejercicio distintas. Elegir bien evitará frustración en ambos.",
-    hasIcon: false,
-    cols: 1,
+    hasIcon: false, cols: 1,
     opciones: [
-      { label: "Tranquilo",   sub: "~1 h/día · Paseos cortos y vida en casa",       value: "bajo",  icon: <ActivityIcon level="bajo" /> },
-      { label: "Moderado",    sub: "1–3 h/día · Paseos largos y salidas",            value: "medio", icon: <ActivityIcon level="medio" /> },
-      { label: "Muy activo",  sub: "+3 h/día · Deporte y aventura al aire libre",   value: "alto",  icon: <ActivityIcon level="alto" /> },
+      { label: "Tranquilo",  sub: "~1 h/día · Paseos cortos y vida en casa",      value: "bajo",  icon: <ActivityIcon level="bajo" /> },
+      { label: "Moderado",   sub: "1–3 h/día · Paseos largos y salidas",           value: "medio", icon: <ActivityIcon level="medio" /> },
+      { label: "Muy activo", sub: "+3 h/día · Deporte y aventura al aire libre",  value: "alto",  icon: <ActivityIcon level="alto" /> },
     ],
   },
   {
-    seccion: "Temperamento",
-    key: "ninos",
+    seccion: "Temperamento", key: "ninos",
     titulo: "¿Hay niños en casa o los habrá próximamente?",
     desc: "Algunas razas muestran una paciencia y afecto excepcional con los más pequeños.",
-    hasIcon: false,
-    cols: 1,
+    hasIcon: false, cols: 1,
     opciones: [
-      { label: "Sí, viven en casa",                                                            value: "convive_siempre" },
-      { label: "Probablemente en los próximos años",                                           value: "alguna_visita" },
-      { label: "No",                                                                            value: "sin_ninos" },
+      { label: "Sí, viven en casa",                          value: "convive_siempre" },
+      { label: "Probablemente en los próximos años",          value: "alguna_visita" },
+      { label: "No",                                          value: "sin_ninos" },
     ],
   },
   {
-    seccion: "Temperamento",
-    key: "temperamento",
+    seccion: "Temperamento", key: "temperamento",
     titulo: "¿Qué temperamento buscas en tu perro?",
     desc: "El carácter de la raza influirá en la convivencia diaria y en cómo interactúa con tu entorno.",
-    hasIcon: false,
-    cols: 2,
+    hasIcon: false, cols: 2,
     opciones: [
-      { label: "Amistoso y sociable",   sub: "Abierto con todo el mundo",                     value: "amistoso" },
-      { label: "Independiente",         sub: "Sin necesidad constante de atención",            value: "independiente" },
-      { label: "Protector",             sub: "Leal y vigilante con su familia",               value: "protector" },
-      { label: "Tímido o reservado",    sub: "Selectivo con las personas",                    value: "timido" },
+      { label: "Amistoso y sociable", sub: "Abierto con todo el mundo",            value: "amistoso" },
+      { label: "Independiente",       sub: "Sin necesidad constante de atención",  value: "independiente" },
+      { label: "Protector",           sub: "Leal y vigilante con su familia",      value: "protector" },
+      { label: "Tímido o reservado",  sub: "Selectivo con las personas",           value: "timido" },
     ],
   },
   {
-    seccion: "Cuidados",
-    key: "entrenamiento",
+    seccion: "Cuidados", key: "entrenamiento",
     titulo: "¿Cuánto tiempo dedicarás al adiestramiento?",
     desc: "El nivel de entrenamiento influye directamente en la convivencia y el bienestar del perro.",
-    hasIcon: false,
-    cols: 1,
+    hasIcon: false, cols: 1,
     opciones: [
-      { label: "Básico",      sub: "Órdenes esenciales del día a día",                        value: "bajo" },
-      { label: "Intermedio",  sub: "Obediencia avanzada, con ayuda profesional si hace falta", value: "alto" },
-      { label: "Avanzado",    sub: "Entrenamiento intensivo y deportes caninos",              value: "muy_alto" },
+      { label: "Básico",     sub: "Órdenes esenciales del día a día",                         value: "bajo" },
+      { label: "Intermedio", sub: "Obediencia avanzada, con ayuda profesional si hace falta", value: "alto" },
+      { label: "Avanzado",   sub: "Entrenamiento intensivo y deportes caninos",               value: "muy_alto" },
     ],
   },
   {
-    seccion: "Cuidados",
-    key: "aseo",
+    seccion: "Cuidados", key: "aseo",
     titulo: "¿Cuánto tiempo puedes dedicar al aseo?",
     desc: "El pelo, las orejas y las uñas requieren atención regular que varía según la raza.",
-    hasIcon: false,
-    cols: 1,
+    hasIcon: false, cols: 1,
     opciones: [
-      { label: "Mínimo",     sub: "Cepillado mensual, sin peluquería frecuente",              value: "mensual" },
-      { label: "Moderado",   sub: "Cepillado semanal y visitas ocasionales al peluquero",     value: "semanal" },
-      { label: "Intensivo",  sub: "Cepillado diario y peluquería cada 2–4 meses",            value: "diario" },
+      { label: "Mínimo",    sub: "Cepillado mensual, sin peluquería frecuente",             value: "mensual" },
+      { label: "Moderado",  sub: "Cepillado semanal y visitas ocasionales al peluquero",    value: "semanal" },
+      { label: "Intensivo", sub: "Cepillado diario y peluquería cada 2–4 meses",           value: "diario" },
     ],
   },
   {
-    seccion: "Cuidados",
-    key: "salud",
+    seccion: "Cuidados", key: "salud",
     titulo: "¿Cuántos cuidados veterinarios puedes proporcionar?",
     desc: "Algunas razas tienen predisposiciones genéticas que requieren seguimiento más frecuente.",
-    hasIcon: false,
-    cols: 1,
+    hasIcon: false, cols: 1,
     opciones: [
-      { label: "Básico",    sub: "Vacunaciones y revisión anual",                             value: "bajo" },
-      { label: "Moderado",  sub: "Revisiones semestrales y cuidados mensuales en casa",       value: "medio" },
-      { label: "Alto",      sub: "Visitas frecuentes y cuidados semanales en casa",           value: "alto" },
+      { label: "Básico",   sub: "Vacunaciones y revisión anual",                          value: "bajo" },
+      { label: "Moderado", sub: "Revisiones semestrales y cuidados mensuales en casa",    value: "medio" },
+      { label: "Alto",     sub: "Visitas frecuentes y cuidados semanales en casa",        value: "alto" },
     ],
   },
   {
-    seccion: "Cuidados",
-    key: "otros_perros",
+    seccion: "Cuidados", key: "otros_perros",
     titulo: "¿Es importante que tu perro se lleve bien con otros perros?",
     desc: "Si ya tienes o frecuentas otros perros, la compatibilidad social es fundamental.",
-    hasIcon: false,
-    cols: 1,
+    hasIcon: false, cols: 1,
     opciones: [
-      { label: "Sí, es importante",   value: "si" },
-      { label: "No es prioritario",   value: NO_IMPORTA },
+      { label: "Sí, es importante", value: "si" },
+      { label: "No es prioritario", value: NO_IMPORTA },
     ],
   },
   {
-    seccion: "Acerca de ti",
-    key: "tuvo_perro",
+    seccion: "Acerca de ti", key: "tuvo_perro",
     titulo: "¿Tienes experiencia como propietario de perro?",
     desc: "Tu experiencia previa determina qué razas te resultarán más cómodas de gestionar.",
-    hasIcon: false,
-    cols: 1,
+    hasIcon: false, cols: 1,
     opciones: [
-      { label: "Sí, tengo experiencia",  sub: "He convivido con perros como propietario principal",                   value: "experimentado" },
-      { label: "Primera vez",             sub: "Nunca he tenido o solo convivía con el perro de la familia",          value: "primerizo" },
+      { label: "Sí, tengo experiencia", sub: "He convivido con perros como propietario principal",             value: "experimentado" },
+      { label: "Primera vez",            sub: "Nunca he tenido o solo convivía con el perro de la familia",   value: "primerizo" },
     ],
   },
   {
-    seccion: "Acerca de ti",
-    key: "vivienda",
+    seccion: "Acerca de ti", key: "vivienda",
     titulo: "¿A qué tipo de espacio exterior tendrá acceso tu perro?",
     desc: "El espacio disponible condiciona el bienestar de muchas razas, especialmente las más activas.",
-    hasIcon: false,
-    cols: 1,
+    hasIcon: false, cols: 1,
     opciones: [
-      { label: "Piso sin jardín",           sub: "Solo paseos para el ejercicio",              value: "piso",              icon: <HouseIcon type="piso" /> },
-      { label: "Casa con jardín pequeño",   sub: "Espacio para tomar el sol y jugar",          value: "piso_con_terraza",  icon: <HouseIcon type="piso_con_terraza" /> },
-      { label: "Casa con jardín amplio",    sub: "Terreno de juego libre",                     value: "casa_con_jardin",   icon: <HouseIcon type="casa_con_jardin" /> },
+      { label: "Piso sin jardín",         sub: "Solo paseos para el ejercicio",     value: "piso",             icon: <HouseIcon type="piso" /> },
+      { label: "Casa con jardín pequeño", sub: "Espacio para tomar el sol y jugar", value: "piso_con_terraza", icon: <HouseIcon type="piso_con_terraza" /> },
+      { label: "Casa con jardín amplio",  sub: "Terreno de juego libre",            value: "casa_con_jardin",  icon: <HouseIcon type="casa_con_jardin" /> },
     ],
   },
 ];
 
 const SECCIONES = ["Perfil", "Temperamento", "Cuidados", "Acerca de ti"];
 
-// ─── Estilos ─────────────────────────────────────────────────────────────────
 const S = {
-  // Layout
-  wrapper: {
-    width: "100%",
-    minHeight: "100vh",
-    background: C.pageBg,
-    fontFamily: "'Segoe UI', system-ui, Arial, sans-serif",
-    color: C.text,
-    overflowX: "hidden",
-    boxSizing: "border-box",
-    display: "flex",
-    flexDirection: "column"
-  },
-  page: {
-    maxWidth: 1080,
-    width: "calc(100% - 48px)",
-    margin: "32px auto",
-    borderRadius: 14,
-    overflow: "hidden",
-    boxShadow: "0 10px 30px rgba(13,31,69,0.10)"
-  },
-  // Header
-  siteHeader: {
-      background: C.navy,
-      padding: "0 24px",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      height: 64,
-      borderBottom: `3px solid ${C.gold}`,
-      width: "100%",
-      boxSizing: "border-box"
-    },
-  logoArea:   { display: "flex", alignItems: "center", gap: 14 },
-  logoText:   { color: C.white },
-  acronym:    { fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.gold, display: "block", lineHeight: 1 },
-  fullName:   { fontSize: 9.5, color: "rgba(255,255,255,0.6)", letterSpacing: "0.06em", textTransform: "uppercase" },
-  headerTag:  { fontSize: 11, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: "0.12em" },
-  // Hero
-  hero:        { background: C.white, borderBottom: `1px solid ${C.border}`, padding: "40px 56px 36px", textAlign: "center" },
+  wrapper: { width: "100%", minHeight: "100vh", background: C.pageBg, fontFamily: "'Segoe UI', system-ui, Arial, sans-serif", color: C.text, overflowX: "hidden", boxSizing: "border-box", display: "flex", flexDirection: "column" },
+  page: { maxWidth: 1080, width: "calc(100% - 48px)", margin: "32px auto", borderRadius: 14, overflow: "hidden", boxShadow: "0 10px 30px rgba(13,31,69,0.10)" },
+  siteHeader: { background: C.navy, padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64, borderBottom: `3px solid ${C.gold}`, width: "100%", boxSizing: "border-box" },
+  logoArea: { display: "flex", alignItems: "center", gap: 14 },
+  logoText: { color: C.white },
+  acronym: { fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.gold, display: "block", lineHeight: 1 },
+  fullName: { fontSize: 9.5, color: "rgba(255,255,255,0.6)", letterSpacing: "0.06em", textTransform: "uppercase" },
+  headerTag: { fontSize: 11, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: "0.12em" },
+  hero: { background: C.white, borderBottom: `1px solid ${C.border}`, padding: "40px 56px 36px", textAlign: "center" },
   heroEyebrow: { fontSize: 11, fontWeight: 700, letterSpacing: "0.15em", color: C.goldDark, textTransform: "uppercase", marginBottom: 10 },
-  heroTitle:   { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 30, fontWeight: 700, color: C.navyDark, lineHeight: 1.25, marginBottom: 10, margin: "0 0 10px" },
+  heroTitle: { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 30, fontWeight: 700, color: C.navyDark, lineHeight: 1.25, marginBottom: 10, margin: "0 0 10px" },
   heroDesc: { fontSize: 14, color: C.muted, lineHeight: 1.7, maxWidth: 480, margin: "0 auto" },
-  // Progress rail
-  progressRail:   { background: C.white, borderBottom: `1px solid ${C.border}` },
-  sectionTabs:    { display: "flex" },
-  sectionTab:     (active, done) => ({
-    flex: 1, padding: "14px 0 12px", textAlign: "center", fontSize: 11.5, fontWeight: 600,
-    letterSpacing: "0.04em", borderBottom: `3px solid ${done ? C.gold : active ? C.navy : "transparent"}`,
-    color: done ? C.goldDark : active ? C.navy : C.muted, cursor: "default",
-  }),
-  progressDots:   { display: "flex", gap: 4, padding: "8px 56px 10px", justifyContent: "center" },
-  pdot:           (state) => ({
-    width: 6, height: 6, borderRadius: "50%",
-    background: state === "done" ? C.gold : state === "current" ? C.navy : C.border,
-  }),
-  // Question layout
-  qLayout:   { display: "flex", minHeight: 380 },
-  qLeft:     { flex: 1, padding: "40px 56px 36px", background: C.white },
-  qAside:    { width: 260, background: C.navyDark, padding: "36px 28px", display: "flex", flexDirection: "column", gap: 16 },
-  qBadge:    { fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", color: C.gold, textTransform: "uppercase", marginBottom: 6 },
-  qTitle:    { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 20, fontWeight: 700, color: C.navyDark, lineHeight: 1.35, margin: "0 0 10px" },
-  qDesc:     { fontSize: 13, color: C.muted, lineHeight: 1.65, margin: "0 0 24px" },
-  // Options grid
-  optsGrid:  (cols) => ({
-    display: "grid",
-    gridTemplateColumns: cols === 3 ? "1fr 1fr 1fr" : cols === 2 ? "1fr 1fr" : "1fr",
-    gap: 14,
-    marginBottom: 8,
-  }),
-  optBtn:    (selected) => ({
-    background: selected ? C.navyLight : C.white,
-    border: `1.5px solid ${selected ? C.navy : C.border}`,
-    borderRadius: 10,
-    padding: "14px 16px",
-    cursor: "pointer",
-    textAlign: "left",
-    display: "flex",
-    alignItems: "flex-start",
-    gap: 12,
-    outline: "none",
-    boxShadow: selected ? `0 0 0 3px rgba(0,48,135,0.1)` : "none",
-    transition: "border-color 0.15s, background 0.15s",
-  }),
+  progressRail: { background: C.white, borderBottom: `1px solid ${C.border}` },
+  sectionTabs: { display: "flex" },
+  sectionTab: (active, done) => ({ flex: 1, padding: "14px 0 12px", textAlign: "center", fontSize: 11.5, fontWeight: 600, letterSpacing: "0.04em", borderBottom: `3px solid ${done ? C.gold : active ? C.navy : "transparent"}`, color: done ? C.goldDark : active ? C.navy : C.muted, cursor: "default" }),
+  progressDots: { display: "flex", gap: 4, padding: "8px 56px 10px", justifyContent: "center" },
+  pdot: (state) => ({ width: 6, height: 6, borderRadius: "50%", background: state === "done" ? C.gold : state === "current" ? C.navy : C.border }),
+  qLayout: { display: "flex", minHeight: 380 },
+  qLeft: { flex: 1, padding: "40px 56px 36px", background: C.white },
+  qAside: { width: 260, background: C.navyDark, padding: "36px 28px", display: "flex", flexDirection: "column", gap: 16 },
+  qBadge: { fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", color: C.gold, textTransform: "uppercase", marginBottom: 6 },
+  qTitle: { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 20, fontWeight: 700, color: C.navyDark, lineHeight: 1.35, margin: "0 0 10px" },
+  qDesc: { fontSize: 13, color: C.muted, lineHeight: 1.65, margin: "0 0 24px" },
+  optsGrid: (cols) => ({ display: "grid", gridTemplateColumns: cols === 3 ? "1fr 1fr 1fr" : cols === 2 ? "1fr 1fr" : "1fr", gap: 14, marginBottom: 8 }),
+  optBtn: (selected) => ({ background: selected ? C.navyLight : C.white, border: `1.5px solid ${selected ? C.navy : C.border}`, borderRadius: 10, padding: "14px 16px", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "flex-start", gap: 12, outline: "none", boxShadow: selected ? `0 0 0 3px rgba(0,48,135,0.1)` : "none", transition: "border-color 0.15s, background 0.15s" }),
   optIconWrap: { flexShrink: 0, width: 52, height: 52, display: "flex", alignItems: "center", justifyContent: "center" },
-  optLabel:    { fontSize: 13.5, fontWeight: 700, color: C.navyDark, display: "block", marginBottom: 2 },
-  optSub:      { fontSize: 11.5, color: C.muted, display: "block", lineHeight: 1.4 },
-  optRadio:    (selected) => ({
-    width: 16, height: 16, borderRadius: "50%", flexShrink: 0, marginTop: 2,
-    border: `1.5px solid ${selected ? C.navy : C.border}`,
-    background: selected ? C.navy : C.white,
-    display: "flex", alignItems: "center", justifyContent: "center",
-  }),
-  // Nav
-  qNav:       { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 56px 24px", background: C.white, borderTop: `1px solid ${C.border}` },
-  qCounter:   { fontSize: 12, color: C.muted },
-  btnBack:    { fontSize: 13, fontWeight: 600, color: C.navy, background: "none", border: `1.5px solid ${C.border}`, borderRadius: 7, padding: "8px 18px", cursor: "pointer" },
-  // Aside
-  asideTip:   { background: "rgba(201,169,75,0.12)", borderLeft: `3px solid ${C.gold}`, borderRadius: "0 6px 6px 0", padding: "12px 14px" },
-  asideTipP:  { fontSize: 12, color: "rgba(255,255,255,0.65)", lineHeight: 1.55, margin: 0 },
-  asideStat:  { textAlign: "center", padding: "12px 0", borderTop: "1px solid rgba(255,255,255,0.1)" },
-  asideNum:   { fontFamily: "Georgia,serif", fontSize: 28, fontWeight: 700, color: C.gold, display: "block" },
-  asideLbl:   { fontSize: 11, color: "rgba(255,255,255,0.45)", letterSpacing: "0.06em", textTransform: "uppercase" },
-  // Result
-  resultHero:    { background: C.navy, padding: "52px 56px 44px", textAlign: "center" },
+  optLabel: { fontSize: 13.5, fontWeight: 700, color: C.navyDark, display: "block", marginBottom: 2 },
+  optSub: { fontSize: 11.5, color: C.muted, display: "block", lineHeight: 1.4 },
+  optRadio: (selected) => ({ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, marginTop: 2, border: `1.5px solid ${selected ? C.navy : C.border}`, background: selected ? C.navy : C.white, display: "flex", alignItems: "center", justifyContent: "center" }),
+  qNav: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 56px 24px", background: C.white, borderTop: `1px solid ${C.border}` },
+  qCounter: { fontSize: 12, color: C.muted },
+  btnBack: { fontSize: 13, fontWeight: 600, color: C.navy, background: "none", border: `1.5px solid ${C.border}`, borderRadius: 7, padding: "8px 18px", cursor: "pointer" },
+  asideTip: { background: "rgba(201,169,75,0.12)", borderLeft: `3px solid ${C.gold}`, borderRadius: "0 6px 6px 0", padding: "12px 14px" },
+  asideTipP: { fontSize: 12, color: "rgba(255,255,255,0.65)", lineHeight: 1.55, margin: 0 },
+  asideStat: { textAlign: "center", padding: "12px 0", borderTop: "1px solid rgba(255,255,255,0.1)" },
+  asideNum: { fontFamily: "Georgia,serif", fontSize: 28, fontWeight: 700, color: C.gold, display: "block" },
+  asideLbl: { fontSize: 11, color: "rgba(255,255,255,0.45)", letterSpacing: "0.06em", textTransform: "uppercase" },
+  resultHero: { background: C.navy, padding: "52px 56px 44px", textAlign: "center" },
   resultEyebrow: { fontSize: 11, letterSpacing: "0.18em", color: C.goldDark, textTransform: "uppercase", marginBottom: 10, fontWeight: 700 },
-  resultBreed:   { fontFamily: "Georgia,serif", fontSize: 36, fontWeight: 700, color: C.white, marginBottom: 10, margin: "0 0 10px" },
-  compatPill:    { display: "inline-flex", alignItems: "center", gap: 10, background: C.gold, color: C.navyDark, fontSize: 15, fontWeight: 700, padding: "9px 26px", borderRadius: 24, marginTop: 10 },
+  resultBreed: { fontFamily: "Georgia,serif", fontSize: 36, fontWeight: 700, color: C.white, marginBottom: 10, margin: "0 0 10px" },
+  compatPill: { display: "inline-flex", alignItems: "center", gap: 10, background: C.gold, color: C.navyDark, fontSize: 15, fontWeight: 700, padding: "9px 26px", borderRadius: 24, marginTop: 10 },
   resultBody: { background: C.white, padding: "36px 56px", textAlign: "center" },
-  avatarStrip:   { display: "flex", justifyContent: "center", gap: 26, padding: "40px 32px", background: C.surface, borderBottom: `1px solid ${C.border}`, flexWrap: "wrap" },
-  resultBody2:   { background: C.white, padding: "56px 64px 60px", textAlign: "center" },
-  resultBreedBig:{ fontFamily: "Georgia,serif", fontSize: 48, fontWeight: 700, color: C.navyDark, margin: "0 0 16px" },
-  resultRasgos:  { fontSize: 18, color: C.muted, margin: 0 },
-  resultLabel:   { fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 16, display: "block" },
-  altRow:        { display: "flex", alignItems: "center", gap: 14, padding: "13px 16px", border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 4 },
-  altName:       { fontSize: 14, fontWeight: 700, color: C.navyDark },
-  altPct:        { fontSize: 13, color: C.muted },
-  pctBar:        { height: 4, background: C.navyLight, borderRadius: 2, marginBottom: 10 },
-  pctFill:       (w) => ({ height: 4, background: C.gold, borderRadius: 2, width: `${w}%` }),
-  btnPrimary:    { background: C.navy, color: C.white, border: "none", borderRadius: 8, padding: "12px 32px", fontSize: 14, fontWeight: 700, cursor: "pointer", letterSpacing: "0.03em", marginTop: 24, display: "block", margin: "24px auto 0" },
-
-  // Peluche
-  peluche:    { textAlign: "center", padding: "60px 56px", background: C.white },
-  pelucheH2:  { fontFamily: "Georgia,serif", fontSize: 22, color: C.navyDark, margin: "16px 0 10px" },
-  pelucheP:   { fontSize: 14, color: C.muted, lineHeight: 1.7, maxWidth: 380, margin: "0 auto 24px" },
-  // Landing / pantalla de inicio
-  landing: {
-      flex: 1,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 40,
-      padding: "40px 24px",
-      background: C.white,
-      maxWidth: 1200,
-      margin: "0 auto",
-      width: "100%",
-      boxSizing: "border-box"
-    },
-  landingLeft:    { flex: 1, maxWidth: 560 },
+  avatarStrip: { display: "flex", justifyContent: "center", gap: 26, padding: "40px 32px", background: C.surface, borderBottom: `1px solid ${C.border}`, flexWrap: "wrap" },
+  resultBody2: { background: C.white, padding: "56px 64px 60px", textAlign: "center" },
+  resultBreedBig: { fontFamily: "Georgia,serif", fontSize: 48, fontWeight: 700, color: C.navyDark, margin: "0 0 16px" },
+  resultRasgos: { fontSize: 18, color: C.muted, margin: 0 },
+  resultLabel: { fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 16, display: "block" },
+  altRow: { display: "flex", alignItems: "center", gap: 14, padding: "13px 16px", border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 4 },
+  altName: { fontSize: 14, fontWeight: 700, color: C.navyDark },
+  altPct: { fontSize: 13, color: C.muted },
+  pctBar: { height: 4, background: C.navyLight, borderRadius: 2, marginBottom: 10 },
+  pctFill: (w) => ({ height: 4, background: C.gold, borderRadius: 2, width: `${w}%` }),
+  btnPrimary: { background: C.navy, color: C.white, border: "none", borderRadius: 8, padding: "12px 32px", fontSize: 14, fontWeight: 700, cursor: "pointer", letterSpacing: "0.03em", marginTop: 24, display: "block", margin: "24px auto 0" },
+  peluche: { textAlign: "center", padding: "60px 56px", background: C.white },
+  pelucheH2: { fontFamily: "Georgia,serif", fontSize: 22, color: C.navyDark, margin: "16px 0 10px" },
+  pelucheP: { fontSize: 14, color: C.muted, lineHeight: 1.7, maxWidth: 380, margin: "0 auto 24px" },
+  landing: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 40, padding: "40px 24px", background: C.white, maxWidth: 1200, margin: "0 auto", width: "100%", boxSizing: "border-box" },
+  landingLeft: { flex: 1, maxWidth: 560 },
   landingEyebrow: { fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", color: C.goldDark, textTransform: "uppercase", marginBottom: 18 },
-  landingTitle:   { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 60, fontWeight: 700, color: C.navyDark, lineHeight: 1.15, margin: "0 0 22px" },
-  landingDesc:    { fontSize: 16, color: C.muted, lineHeight: 1.7, margin: "0 0 32px", maxWidth: 460 },
-  landingSteps:   { listStyle: "none", padding: 0, margin: "0 0 36px", display: "flex", flexDirection: "column", gap: 18 },
-  landingStep:    { display: "flex", alignItems: "center", gap: 16, fontSize: 15, color: C.text, fontWeight: 500 },
+  landingTitle: { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 60, fontWeight: 700, color: C.navyDark, lineHeight: 1.15, margin: "0 0 22px" },
+  landingDesc: { fontSize: 16, color: C.muted, lineHeight: 1.7, margin: "0 0 32px", maxWidth: 460 },
+  landingSteps: { listStyle: "none", padding: 0, margin: "0 0 36px", display: "flex", flexDirection: "column", gap: 18 },
+  landingStep: { display: "flex", alignItems: "center", gap: 16, fontSize: 15, color: C.text, fontWeight: 500 },
   landingStepNum: { width: 32, height: 32, borderRadius: "50%", background: C.gold, color: C.navyDark, fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
-  landingBtn:     { background: C.navy, color: C.white, border: "none", borderRadius: 8, padding: "16px 42px", fontSize: 15, fontWeight: 700, letterSpacing: "0.03em", cursor: "pointer" },
-  landingRight:   { flex: 1, height: 560, display: "flex", gap: 14, alignItems: "stretch" },
-  filmPanel:      { flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" },
-  filmPanelActive:{ flex: 2.4, border: `2px solid ${C.gold}`, background: C.navyLight, boxShadow: "0 10px 24px rgba(0,48,135,0.10)" },
-
-  // ── Panel de resultado: dos columnas (tabs aciertos/fallos + card de raza) ──
-  detailWrap:   { display: "flex", gap: 24, padding: "32px 40px 40px", alignItems: "flex-start", flexWrap: "wrap", background: C.surface },
-  detailLeft:   { flex: "1 1 420px", minWidth: 320, background: C.white, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" },
-  detailTabs:   { display: "flex", borderBottom: `1px solid ${C.border}`, padding: "0 24px" },
-  detailTab:    (active) => ({
-    padding: "18px 16px 14px", fontSize: 14.5, fontWeight: 600, cursor: "pointer",
-    color: active ? C.navy : C.muted, background: "none", border: "none",
-    borderBottom: `3px solid ${active ? C.navy : "transparent"}`, marginBottom: -1,
-    fontFamily: "inherit", whiteSpace: "nowrap",
-  }),
-  detailRows:   { padding: "8px 24px 20px" },
-  detailRow:    { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, padding: "18px 0", borderBottom: `1px solid ${C.border}` },
-  detailRowLabel:{ fontSize: 16, fontWeight: 600, color: C.text, margin: "0 0 4px" },
-  detailRowValue:{ fontSize: 13, color: C.muted, margin: 0 },
-  detailIcon:   (acierto) => ({
-    flexShrink: 0, width: 26, height: 26, borderRadius: "50%",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    background: acierto === null ? C.navyLight : acierto ? C.successLight : C.redLight,
-    color: acierto === null ? C.muted : acierto ? C.success : C.red,
-    marginTop: 2,
-  }),
-
-  detailRight:  { flex: "1 1 340px", minWidth: 300, maxWidth: 420, background: C.white, border: `1px solid ${C.gold}`, borderRadius: 14, padding: "32px 28px", textAlign: "center" },
-  detailBadge:  { width: 64, height: 64, borderRadius: "50%", border: `1.5px solid ${C.gold}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 18px" },
-  detailTitle:  { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 19, fontWeight: 700, color: C.navyDark, margin: "0 0 14px", lineHeight: 1.35 },
-  detailDesc:   { fontSize: 13.5, color: C.muted, lineHeight: 1.7, margin: "0 0 22px" },
-  btnFCI:       { background: C.red, color: C.white, border: "none", borderRadius: 8, padding: "13px 30px", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none" },
-
-  // ── Ficha de raza (pantalla "Más información") ──
-  fichaWrap:     { background: C.white, padding: "44px 56px 56px" },
-  fichaBack:     { display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", color: C.navy, fontSize: 13.5, fontWeight: 600, cursor: "pointer", padding: 0, marginBottom: 28 },
-  fichaHead:     { display: "flex", gap: 48, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 48 },
+  landingBtn: { background: C.navy, color: C.white, border: "none", borderRadius: 8, padding: "16px 42px", fontSize: 15, fontWeight: 700, letterSpacing: "0.03em", cursor: "pointer" },
+  landingRight: { flex: 1, height: 560, display: "flex", gap: 14, alignItems: "stretch" },
+  filmPanel: { flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  filmPanelActive: { flex: 2.4, border: `2px solid ${C.gold}`, background: C.navyLight, boxShadow: "0 10px 24px rgba(0,48,135,0.10)" },
+  detailWrap: { display: "flex", gap: 24, padding: "32px 40px 40px", alignItems: "flex-start", flexWrap: "wrap", background: C.surface },
+  detailLeft: { flex: "1 1 420px", minWidth: 320, background: C.white, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" },
+  detailTabs: { display: "flex", borderBottom: `1px solid ${C.border}`, padding: "0 24px" },
+  detailTab: (active) => ({ padding: "18px 16px 14px", fontSize: 14.5, fontWeight: 600, cursor: "pointer", color: active ? C.navy : C.muted, background: "none", border: "none", borderBottom: `3px solid ${active ? C.navy : "transparent"}`, marginBottom: -1, fontFamily: "inherit", whiteSpace: "nowrap" }),
+  detailRows: { padding: "8px 24px 20px" },
+  detailRow: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, padding: "18px 0", borderBottom: `1px solid ${C.border}` },
+  detailRowLabel: { fontSize: 16, fontWeight: 600, color: C.text, margin: "0 0 4px" },
+  detailRowValue: { fontSize: 13, color: C.muted, margin: 0 },
+  detailIcon: (acierto) => ({ flexShrink: 0, width: 26, height: 26, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: acierto === null ? C.navyLight : acierto ? C.successLight : C.redLight, color: acierto === null ? C.muted : acierto ? C.success : C.red, marginTop: 2 }),
+  detailRight: { flex: "1 1 340px", minWidth: 300, maxWidth: 420, background: C.white, border: `1px solid ${C.gold}`, borderRadius: 14, padding: "32px 28px", textAlign: "center" },
+  detailBadge: { width: 64, height: 64, borderRadius: "50%", border: `1.5px solid ${C.gold}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 18px" },
+  detailTitle: { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 19, fontWeight: 700, color: C.navyDark, margin: "0 0 14px", lineHeight: 1.35 },
+  detailDesc: { fontSize: 13.5, color: C.muted, lineHeight: 1.7, margin: "0 0 22px" },
+  btnFCI: { background: C.navy, color: C.white, border: "none", borderRadius: 8, padding: "13px 30px", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none" },
+  fichaWrap: { background: C.white, padding: "44px 56px 56px" },
+  fichaBack: { display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", color: C.navy, fontSize: 13.5, fontWeight: 600, cursor: "pointer", padding: 0, marginBottom: 28 },
+  fichaHead: { display: "flex", gap: 48, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 48 },
   fichaHeadLeft: { flex: "1 1 360px", minWidth: 280 },
-  fichaTitle:    { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 44, fontWeight: 700, color: C.red, lineHeight: 1.12, margin: "0 0 18px" },
-  fichaShare:    { display: "flex", gap: 14, alignItems: "center", marginBottom: 26 },
+  fichaTitle: { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 44, fontWeight: 700, color: C.red, lineHeight: 1.12, margin: "0 0 18px" },
+  fichaShare: { display: "flex", gap: 14, alignItems: "center", marginBottom: 26 },
   fichaShareBtn: { width: 30, height: 30, borderRadius: "50%", border: `1px solid ${C.border}`, background: C.white, display: "flex", alignItems: "center", justifyContent: "center", color: C.muted, cursor: "default" },
-  fichaDesc:     { fontSize: 14.5, color: C.text, lineHeight: 1.75, maxWidth: 460, margin: 0 },
-  fichaHeadRight:{ flex: "1 1 360px", minWidth: 260, display: "flex", justifyContent: "center" },
-  fichaImgWrap:  { width: "100%", maxWidth: 420, aspectRatio: "4/3", borderRadius: 16, overflow: "hidden", background: C.navyLight },
-  fichaCols:     { display: "flex", gap: 40, flexWrap: "wrap", borderTop: `1px solid ${C.border}`, paddingTop: 36 },
-  fichaCol:      { flex: "1 1 260px", minWidth: 220 },
+  fichaDesc: { fontSize: 14.5, color: C.text, lineHeight: 1.75, maxWidth: 460, margin: 0 },
+  fichaHeadRight: { flex: "1 1 360px", minWidth: 260, display: "flex", justifyContent: "center" },
+  fichaImgWrap: { width: "100%", maxWidth: 420, aspectRatio: "4/3", borderRadius: 16, overflow: "hidden", background: C.navyLight },
+  fichaCols: { display: "flex", gap: 40, flexWrap: "wrap", borderTop: `1px solid ${C.border}`, paddingTop: 36 },
+  fichaCol: { flex: "1 1 260px", minWidth: 220 },
   fichaColTitle: { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 19, fontWeight: 700, color: C.red, margin: "0 0 14px" },
-  fichaColP:     { fontSize: 13.5, color: C.text, lineHeight: 1.75, margin: "0 0 10px" },
-  fichaColLine:  { fontSize: 13.5, color: C.text, lineHeight: 1.9, margin: 0 },
+  fichaColP: { fontSize: 13.5, color: C.text, lineHeight: 1.75, margin: "0 0 10px" },
+  fichaColLine: { fontSize: 13.5, color: C.text, lineHeight: 1.9, margin: 0 },
 };
 
-// ─── Componente principal ────────────────────────────────────────────────────
 export default function TestPerroIdeal() {
-  const [step, setStep]           = useState(0);
+  const [step, setStep]             = useState(0);
   const [respuestas, setRespuestas] = useState({});
-  const [resultado, setResultado] = useState(null);
-  const [hovered, setHovered]     = useState(null);
-  const [razaFicha, setRazaFicha] = useState(null); // nombre de la raza mostrada en la ficha de detalle, o null
+  const [resultado, setResultado]   = useState(null);
+  const [hovered, setHovered]       = useState(null);
   const [mostrarInicio, setMostrarInicio] = useState(() => {
     if (typeof window === "undefined") return true;
     return new URLSearchParams(window.location.search).get("start") !== "test";
@@ -1409,7 +1118,6 @@ export default function TestPerroIdeal() {
 
   const reiniciar = () => { setStep(0); setRespuestas({}); setResultado(null); };
 
-  // ── Render: progress rail ──
   const ProgressRail = () => (
     <div style={S.progressRail}>
       <div style={S.sectionTabs}>
@@ -1428,7 +1136,6 @@ export default function TestPerroIdeal() {
     </div>
   );
 
-  // ── Render: landing (pantalla de inicio) ──
   const Landing = () => (
     <div style={S.landing}>
       <div style={S.landingLeft}>
@@ -1446,17 +1153,16 @@ export default function TestPerroIdeal() {
         <button style={S.landingBtn} onClick={irAlTest}>Realizar el test</button>
       </div>
       <div style={S.landingRight}>
-    <div style={S.filmPanel}><DogSizeIllustration size="mini" width={64} height={53} /></div>
-    <div style={{ ...S.filmPanel, ...S.filmPanelActive }}>
-      <DogSizeIllustration size="mediano" width={170} height={140} />
-    </div>
-    <div style={S.filmPanel}><DogSizeIllustration size="grande" width={64} height={53} /></div>
-    <div style={S.filmPanel}><DogSizeIllustration size="muygrande" width={64} height={53} /></div>
-  </div>
+        <div style={S.filmPanel}><DogSizeIllustration size="mini" width={64} height={53} /></div>
+        <div style={{ ...S.filmPanel, ...S.filmPanelActive }}>
+          <DogSizeIllustration size="mediano" width={170} height={140} />
+        </div>
+        <div style={S.filmPanel}><DogSizeIllustration size="grande" width={64} height={53} /></div>
+        <div style={S.filmPanel}><DogSizeIllustration size="muygrande" width={64} height={53} /></div>
+      </div>
     </div>
   );
 
-  // ── Render: hero ──
   const Hero = () => (
     <div style={S.hero}>
       <div style={S.heroEyebrow}>Test de compatibilidad de razas</div>
@@ -1468,19 +1174,16 @@ export default function TestPerroIdeal() {
     </div>
   );
 
-  // ── Render: question ──
   const Question = () => {
     const tip = ASIDE_TIPS[step % ASIDE_TIPS.length];
     return (
       <>
         <ProgressRail />
         <div style={S.qLayout}>
-          {/* Columna izquierda */}
           <div style={S.qLeft}>
             <div style={S.qBadge}>{pregunta.seccion} · Pregunta {step + 1} de {PREGUNTAS.length}</div>
             <h2 style={S.qTitle}>{pregunta.titulo}</h2>
             <p style={S.qDesc}>{pregunta.desc}</p>
-
             <div style={S.optsGrid(pregunta.cols)}>
               {pregunta.opciones.map((op, idx) => {
                 const sel = respuestas[pregunta.key] === op.value;
@@ -1491,21 +1194,12 @@ export default function TestPerroIdeal() {
                     onClick={() => seleccionar(op.value)}
                     onMouseEnter={() => setHovered(`${step}-${idx}`)}
                     onMouseLeave={() => setHovered(null)}
-                    style={{
-                      ...S.optBtn(sel),
-                      ...(hov && !sel ? { borderColor: C.navy, background: C.navyLight } : {}),
-                    }}
+                    style={{ ...S.optBtn(sel), ...(hov && !sel ? { borderColor: C.navy, background: C.navyLight } : {}) }}
                   >
-                    {pregunta.hasIcon && op.icon && (
-                      <div style={S.optIconWrap}>{op.icon}</div>
-                    )}
+                    {pregunta.hasIcon && op.icon && <div style={S.optIconWrap}>{op.icon}</div>}
                     {!pregunta.hasIcon && (
                       <div style={S.optRadio(sel)}>
-                        {sel && (
-                          <svg viewBox="0 0 12 12" width="8" height="8">
-                            <circle cx="6" cy="6" r="3.5" fill="white" />
-                          </svg>
-                        )}
+                        {sel && <svg viewBox="0 0 12 12" width="8" height="8"><circle cx="6" cy="6" r="3.5" fill="white" /></svg>}
                       </div>
                     )}
                     <div>
@@ -1517,20 +1211,15 @@ export default function TestPerroIdeal() {
               })}
             </div>
           </div>
-
-          {/* Panel lateral */}
           <div style={S.qAside}>
             <div style={{ textAlign: "center", marginBottom: 8 }}>
               <svg viewBox="0 0 40 40" width="36" height="36" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="20" cy="20" r="18" stroke={C.gold} strokeWidth="1.5" fill="none" />
                 <circle cx="20" cy="20" r="14" stroke={C.gold} strokeWidth="0.5" opacity="0.4" fill="none" />
-                <text x="20" y="26" textAnchor="middle" fontSize="18" fontWeight="700"
-                      fill={C.gold} fontFamily="Georgia,serif">R</text>
+                <text x="20" y="26" textAnchor="middle" fontSize="18" fontWeight="700" fill={C.gold} fontFamily="Georgia,serif">R</text>
               </svg>
             </div>
-            <div style={S.asideTip}>
-              <p style={S.asideTipP}>{tip}</p>
-            </div>
+            <div style={S.asideTip}><p style={S.asideTipP}>{tip}</p></div>
             <div style={S.asideStat}>
               <span style={S.asideNum}>{razas.length}</span>
               <span style={S.asideLbl}>Razas analizadas</span>
@@ -1541,23 +1230,18 @@ export default function TestPerroIdeal() {
             </div>
           </div>
         </div>
-
-        {/* Navegación */}
         <div style={S.qNav}>
           {step > 0 ? (
             <button style={S.btnBack} onClick={() => setStep(step - 1)}>← Anterior</button>
-          ) : (
-            <span />
-          )}
+          ) : <span />}
           <span style={S.qCounter}>Selecciona una opción para continuar</span>
         </div>
       </>
     );
   };
 
-  // ── Render: resultado ──
   const Resultado = () => {
-    const [seleccionada, setSeleccionada] = useState(0); // 0 = mejor, 1+ = alternativas
+    const [seleccionada, setSeleccionada] = useState(0);
     const [tab, setTab] = useState("perfil");
 
     if (resultado.recomendarPeluche) {
@@ -1579,10 +1263,7 @@ export default function TestPerroIdeal() {
     const actual = todas[seleccionada] || mejor;
     const razaActual = razas.find((r) => r.nombre === actual.nombre);
     const rasgos = razaActual ? rasgosDeRaza(razaActual) : [];
-    const nombreFormateado = actual.nombre
-      .toLowerCase()
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-
+    const nombreFormateado = actual.nombre.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
     const filas = razaActual ? construirFilasResultado(razaActual, respuestas) : null;
     const descripcion = razaActual ? descripcionGenerada(razaActual, nombreFormateado) : "";
 
@@ -1599,13 +1280,11 @@ export default function TestPerroIdeal() {
           <svg viewBox="0 0 20 20" width="13" height="13"><circle cx="10" cy="10" r="2" fill="currentColor" /></svg>
         ) : acierto ? (
           <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="10" cy="10" r="9" />
-            <path d="M6 10.5l2.6 2.6L14 7.6" />
+            <circle cx="10" cy="10" r="9" /><path d="M6 10.5l2.6 2.6L14 7.6" />
           </svg>
         ) : (
           <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="10" cy="10" r="9" />
-            <path d="M7 7l6 6M13 7l-6 6" />
+            <circle cx="10" cy="10" r="9" /><path d="M7 7l6 6M13 7l-6 6" />
           </svg>
         )}
       </div>
@@ -1616,10 +1295,7 @@ export default function TestPerroIdeal() {
         <div style={S.avatarStrip}>
           {todas.map((p, i) => (
             <BreedAvatar
-              key={i}
-              nombre={p.nombre}
-              pct={p.pct}
-              size={84}
+              key={i} nombre={p.nombre} pct={p.pct} size={84}
               activo={i === seleccionada}
               onClick={() => { setSeleccionada(i); setTab("perfil"); }}
             />
@@ -1627,46 +1303,32 @@ export default function TestPerroIdeal() {
         </div>
 
         <div style={S.resultBody2}>
-          <div style={S.resultEyebrow}>
-            {seleccionada === 0 ? "Tu mejor opción" : "Otra buena opción"}
-          </div>
+          <div style={S.resultEyebrow}>{seleccionada === 0 ? "Tu mejor opción" : "Otra buena opción"}</div>
           <h2 style={S.resultBreedBig}>{nombreFormateado}</h2>
-          {rasgos.length > 0 && (
-            <p style={S.resultRasgos}>{rasgos.join(", ")}</p>
-          )}
-
+          {rasgos.length > 0 && <p style={S.resultRasgos}>{rasgos.join(", ")}</p>}
           <div style={{ display: "flex", justifyContent: "center", margin: "28px 0" }}>
             <BreedGallery nombre={actual.nombre} width={460} height={350} />
           </div>
-
           <div style={{ display: "flex", justifyContent: "center" }}>
             <div style={S.compatPill}>
               <svg viewBox="0 0 20 20" width="14" height="14" fill={C.navyDark} xmlns="http://www.w3.org/2000/svg">
-                <circle cx="5"   cy="5"  r="2.5" />
-                <circle cx="15"  cy="5"  r="2.5" />
-                <circle cx="2.5" cy="10" r="2"   />
-                <circle cx="17.5"cy="10" r="2"   />
-                <ellipse cx="10" cy="14" rx="5"  ry="4.5" />
+                <circle cx="5" cy="5" r="2.5" /><circle cx="15" cy="5" r="2.5" />
+                <circle cx="2.5" cy="10" r="2" /><circle cx="17.5" cy="10" r="2" />
+                <ellipse cx="10" cy="14" rx="5" ry="4.5" />
               </svg>
               {actual.pct >= 80 ? "Excelente compatibilidad" : "Buena compatibilidad"} · {Math.round(actual.pct)}%
             </div>
           </div>
         </div>
 
-        <CharacteristicsPanel raza={razaActual} />
-        <HistoriaRaza nombre={actual.nombre} />
+       
 
-        {/* ── Detalle: aciertos/fallos a la izquierda, ficha de raza a la derecha ── */}
         {filas && (
           <div style={S.detailWrap}>
             <div style={S.detailLeft}>
               <div style={S.detailTabs}>
                 {TABS.map((t) => (
-                  <button
-                    key={t.key}
-                    style={S.detailTab(tab === t.key)}
-                    onClick={() => setTab(t.key)}
-                  >
+                  <button key={t.key} style={S.detailTab(tab === t.key)} onClick={() => setTab(t.key)}>
                     {t.label}
                   </button>
                 ))}
@@ -1684,6 +1346,7 @@ export default function TestPerroIdeal() {
               </div>
             </div>
 
+            {/* ── Card de raza con enlace a criadores RSCE ── */}
             <div style={S.detailRight}>
               <div style={S.detailBadge}>
                 <svg viewBox="0 0 40 40" width="30" height="30" xmlns="http://www.w3.org/2000/svg">
@@ -1695,15 +1358,20 @@ export default function TestPerroIdeal() {
               </div>
               <h3 style={S.detailTitle}>Acerca de {nombreFormateado}</h3>
               <p style={S.detailDesc}>{descripcion}</p>
-              <button
-                onClick={() => setRazaFicha(actual.nombre)}
+              <p style={{ fontSize: 12, color: C.muted, margin: "0 0 22px", fontStyle: "italic" }}>
+                En la página de RSCE, selecciona "{nombreFormateado}" en el filtro de razas para ver los criadores disponibles.
+              </p>
+              <a
+                href="https://www.rsce.es/criadores/"
+                target="_blank"
+                rel="noopener noreferrer"
                 style={S.btnFCI}
               >
-                Más información
+                Buscar criadores de {nombreFormateado}
                 <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M7 4l6 6-6 6" />
                 </svg>
-              </button>
+              </a>
             </div>
           </div>
         )}
@@ -1715,23 +1383,15 @@ export default function TestPerroIdeal() {
     );
   };
 
-  // ── Render principal ────────────────────────────────────────────────────
   return (
-    <div
-      style={{
-        ...S.wrapper,
-        justifyContent: mostrarInicio ? "center" : "flex-start",
-        alignItems: "center",
-      }}
-    >
+    <div style={{ ...S.wrapper, justifyContent: mostrarInicio ? "center" : "flex-start", alignItems: "center" }}>
       {mostrarInicio && (
         <header style={S.siteHeader}>
           <div style={S.logoArea}>
             <svg viewBox="0 0 38 38" width="38" height="38" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="19" cy="19" r="18" stroke={C.gold} strokeWidth="1.5" />
               <circle cx="19" cy="19" r="14" stroke={C.gold} strokeWidth="0.5" opacity="0.4" />
-              <text x="19" y="25" textAnchor="middle" fontSize="18" fontWeight="700"
-                    fill={C.gold} fontFamily="Georgia,serif">R</text>
+              <text x="19" y="25" textAnchor="middle" fontSize="18" fontWeight="700" fill={C.gold} fontFamily="Georgia,serif">R</text>
             </svg>
             <div style={S.logoText}>
               <span style={S.acronym}>RSCE</span>
