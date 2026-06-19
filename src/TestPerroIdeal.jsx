@@ -374,7 +374,7 @@ const BreedAvatar = ({ nombre, pct, size = 64, activo = false, onClick }) => {
       <span style={{
         fontSize: 15, fontWeight: 700,
         color: activo ? C.gold : C.muted,
-      }}>{Math.round(pct)}%</span>
+      }}>{Math.round(pct)}% {activo ? "match" : ""}</span>
     </button>
   );
 };
@@ -656,9 +656,6 @@ const PESOS = {
 };
 
 // ─── Razas destacadas ───────────────────────────────────────────────────────
-// Estas razas reciben una bonificación en la puntuación final para aumentar
-// su probabilidad de aparecer como resultado (mejor opción o alternativa),
-// sin eliminar por completo la influencia de las respuestas del usuario.
 const RAZAS_DESTACADAS = new Set([
   "AKITA AMERICANO", "AKITA", "ALASKAN MALAMUTE", "AMERICAN STAFFORDSHIRE TERRIER",
   "AUSTRALIAN CATTLE DOG", "BASENJI", "BASSET HOUND", "BEAGLE", "BICHON HABANERO",
@@ -676,8 +673,6 @@ const RAZAS_DESTACADAS = new Set([
   "WELSH CORGI PEMBROKE", "YORKSHIRE TERRIER", "ZWERGPINSCHER",
 ]);
 
-// Multiplicador aplicado a la puntuación de las razas destacadas.
-// >1 aumenta su probabilidad de salir como resultado frente al resto.
 const BOOST_DESTACADAS = 1.12;
 
 const ETIQ_TAMANO = {
@@ -941,7 +936,7 @@ function calcularResultado(resp) {
       else if (raza.vivienda === "indiferente") pts += PESOS.vivienda * 0.6;
       else { const p = puntajeEscala(["piso", "piso_con_terraza", "casa_con_jardin"], resp.vivienda, raza.vivienda); if (p !== null) pts += p * PESOS.vivienda * 0.5; }
     }
-      if (RAZAS_DESTACADAS.has(raza.nombre) && pts > 0) {
+    if (RAZAS_DESTACADAS.has(raza.nombre) && pts > 0) {
       pts *= BOOST_DESTACADAS;
     }
     return { nombre: raza.nombre, pts, pct: maxPts > 0 ? Math.max(0, (pts / maxPts) * 100) : 0 };
@@ -1172,15 +1167,14 @@ const S = {
   detailRowLabel: { fontSize: 16, fontWeight: 600, color: C.text, margin: "0 0 4px" },
   detailRowValue: { fontSize: 13, color: C.muted, margin: 0 },
   detailIcon: (acierto) => ({ flexShrink: 0, width: 26, height: 26, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: acierto === null ? C.navyLight : acierto ? C.successLight : C.redLight, color: acierto === null ? C.muted : acierto ? C.success : C.red, marginTop: 2 }),
-  detailRight: { flex: "1 1 340px", minWidth: 300, maxWidth: 420, background: C.white, border: `1px solid ${C.gold}`, borderRadius: 14, padding: "32px 28px", textAlign: "center" },
+  detailRight: { border: `1px solid ${C.gold}`, borderRadius: 14, padding: "32px 28px", textAlign: "center", background: C.white },
   detailBadge: { width: 64, height: 64, borderRadius: "50%", border: `1.5px solid ${C.gold}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 18px" },
   detailTitle: { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 19, fontWeight: 700, color: C.navyDark, margin: "0 0 14px", lineHeight: 1.35 },
   detailDesc: { fontSize: 13.5, color: C.muted, lineHeight: 1.7, margin: "0 0 22px" },
   btnFCI: { background: C.navy, color: C.white, border: "none", borderRadius: 8, padding: "13px 30px", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none" },
 
-  specsWrap: { padding: "0 40px 40px", background: C.surface },
-  specsCard: { maxWidth: 1000, margin: "0 auto", background: C.white, border: `1px solid ${C.border}`, borderRadius: 14, padding: "32px 40px" },
-  specsTitle: { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 19, fontWeight: 700, color: C.navyDark, margin: "0 0 10px" },
+  specsCard: { background: C.white, border: `1px solid ${C.border}`, borderRadius: 14, padding: "24px 28px" },
+  specsTitle: { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 16, fontWeight: 700, color: C.navyDark, margin: "0 0 8px" },
   specsTitleRule: { width: 36, height: 3, background: C.gold, marginBottom: 24 },
   specsGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, marginBottom: 28 },
   specsColLabel: { fontSize: 13, fontWeight: 700, color: C.navyDark, marginBottom: 14, paddingBottom: 8, borderBottom: `1px solid ${C.border}` },
@@ -1269,51 +1263,50 @@ export default function TestPerroIdeal() {
   );
 
   const LANDING_PANELS = [
-  { nombre: "Golden Retriever", src: "https://images.unsplash.com/photo-1633722715463-d30f4f325e24?fm=jpg" },
-  { nombre: "Border Collie",    src: "https://img.magnific.com/premium-photo/vertical-shot-adorable-border-collie-holding-stick-forest-sunlight_181624-42671.jpg" },
-  { nombre: "Beagle",           src: "https://thumbs.dreamstime.com/b/beagle-dog-cutie-vertical-portrait-one-breed-short-red-white-black-tricolor-hair-sitting-outdoors-green-grass-96077027.jpg" },
-  { nombre: "Husky Siberiano",  src: "https://img.magnific.com/free-photo/vertical-shallow-focus-side-view-siberian-husky-dog_181624-60703.jpg" },
+    { nombre: "Golden Retriever", src: "https://images.unsplash.com/photo-1633722715463-d30f4f325e24?fm=jpg" },
+    { nombre: "Border Collie",    src: "https://img.magnific.com/premium-photo/vertical-shot-adorable-border-collie-holding-stick-forest-sunlight_181624-42671.jpg" },
+    { nombre: "Beagle",           src: "https://thumbs.dreamstime.com/b/beagle-dog-cutie-vertical-portrait-one-breed-short-red-white-black-tricolor-hair-sitting-outdoors-green-grass-96077027.jpg" },
+    { nombre: "Husky Siberiano",  src: "https://img.magnific.com/free-photo/vertical-shallow-focus-side-view-siberian-husky-dog_181624-60703.jpg" },
   ];
 
   const Landing = () => {
-  const [panelActivo, setPanelActivo] = useState(1);
+    const [panelActivo, setPanelActivo] = useState(1);
 
-  return (
-    <div style={S.landing}>
-      <div style={S.landingLeft}>
-        <div style={S.landingEyebrow}>RSCE · Test de razas</div>
-        <h1 style={S.landingTitle}>Encuentra la<br />raza perfecta</h1>
-        <p style={S.landingDesc}>
-          Responde {PREGUNTAS.length} preguntas sobre tu estilo de vida y descubre
-          qué raza de perro se adapta mejor a ti y a tu hogar.
-        </p>
-        <ol style={S.landingSteps}>
-          <li style={S.landingStep}><span style={S.landingStepNum}>1</span><span>Responde a preguntas sobre tu estilo de vida</span></li>
-          <li style={S.landingStep}><span style={S.landingStepNum}>2</span><span>Descubre la raza más adecuada para ti</span></li>
-          <li style={S.landingStep}><span style={S.landingStepNum}>3</span><span>Accede a contenido detallado sobre tu raza favorita</span></li>
-        </ol>
-        <button style={S.landingBtn} onClick={irAlTest}>Realizar el test</button>
+    return (
+      <div style={S.landing}>
+        <div style={S.landingLeft}>
+          <div style={S.landingEyebrow}>RSCE · Test de razas</div>
+          <h1 style={S.landingTitle}>Encuentra la<br />raza perfecta</h1>
+          <p style={S.landingDesc}>
+            Responde {PREGUNTAS.length} preguntas sobre tu estilo de vida y descubre
+            qué raza de perro se adapta mejor a ti y a tu hogar.
+          </p>
+          <ol style={S.landingSteps}>
+            <li style={S.landingStep}><span style={S.landingStepNum}>1</span><span>Responde a preguntas sobre tu estilo de vida</span></li>
+            <li style={S.landingStep}><span style={S.landingStepNum}>2</span><span>Descubre la raza más adecuada para ti</span></li>
+            <li style={S.landingStep}><span style={S.landingStepNum}>3</span><span>Accede a contenido detallado sobre tu raza favorita</span></li>
+          </ol>
+          <button style={S.landingBtn} onClick={irAlTest}>Realizar el test</button>
+        </div>
+        <div style={S.landingRight}>
+          {LANDING_PANELS.map((panel, i) => (
+            <div
+              key={panel.nombre}
+              style={{ ...S.filmPanel, ...(i === panelActivo ? S.filmPanelActive : {}) }}
+              onMouseEnter={() => setPanelActivo(i)}
+              onClick={() => setPanelActivo(i)}
+            >
+              <img
+                src={panel.src}
+                alt={panel.nombre}
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+            </div>
+          ))}
+        </div>
       </div>
-      <div style={S.landingRight}>
-        {LANDING_PANELS.map((panel, i) => (
-          <div
-            key={panel.nombre}
-            style={{ ...S.filmPanel, ...(i === panelActivo ? S.filmPanelActive : {}) }}
-            onMouseEnter={() => setPanelActivo(i)}
-            onClick={() => setPanelActivo(i)}
-          >
-            <img
-              src={panel.src}
-              alt={panel.nombre}
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-            />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-  
+    );
+  };
 
   const Hero = () => (
     <div style={S.hero}>
@@ -1419,12 +1412,13 @@ export default function TestPerroIdeal() {
     const filas = razaActual ? construirFilasResultado(razaActual, respuestas) : null;
     const descripcion = razaActual ? descripcionGenerada(razaActual, nombreFormateado) : "";
 
-    const TABS = [
-      { key: "perfil",       label: "Perfil" },
-      { key: "temperamento", label: "Temperamento" },
-      { key: "cuidados",     label: "Cuidados" },
-      { key: "acercaDeTi",   label: "Acerca de ti" },
-    ];
+  const TABS = [
+  { key: "perfil",          label: "Perfil" },
+  { key: "temperamento",    label: "Temperamento" },
+  { key: "cuidados",        label: "Cuidados" },
+  { key: "acercaDeTi",      label: "Acerca de ti" },
+  { key: "especificaciones", label: "Especificaciones" },
+  ];
 
     const IconoAcierto = ({ acierto }) => (
       <div style={S.detailIcon(acierto)}>
@@ -1441,6 +1435,10 @@ export default function TestPerroIdeal() {
         )}
       </div>
     );
+
+    const specs = razaActual
+      ? (ESPECIFICACIONES_TAMANO[razaActual.tamano] || ESPECIFICACIONES_TAMANO.mediano)
+      : null;
 
     return (
       <>
@@ -1473,108 +1471,106 @@ export default function TestPerroIdeal() {
           </div>
         </div>
 
-       
-
         {filas && (
-          <div style={S.detailWrap}>
-            <div style={S.detailLeft}>
-              <div style={S.detailTabs}>
-                {TABS.map((t) => (
-                  <button key={t.key} style={S.detailTab(tab === t.key)} onClick={() => setTab(t.key)}>
-                    {t.label}
-                  </button>
-                ))}
-              </div>
+  <div style={S.detailWrap}>
+    <div style={S.detailLeft}>
+      <div style={{ ...S.detailTabs, overflowX: "auto", scrollbarWidth: "none" }}>
+        {TABS.map((t) => (
+          <button key={t.key} style={{ ...S.detailTab(tab === t.key), whiteSpace: "nowrap", fontSize: 13, padding: "18px 12px 14px" }} onClick={() => setTab(t.key)}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
               <div style={S.detailRows}>
-                {filas[tab].map((f, i) => (
-                  <div key={i} style={{ ...S.detailRow, borderBottom: i === filas[tab].length - 1 ? "none" : S.detailRow.borderBottom }}>
-                    <div>
-                      <p style={S.detailRowLabel}>{f.label}</p>
-                      <p style={S.detailRowValue}>{f.valor}</p>
-                    </div>
-                    <IconoAcierto acierto={f.acierto} />
-                  </div>
-                ))}
-              </div>
+  {tab === "especificaciones" && specs ? (
+    <>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, padding: "16px 0 24px" }}>
+        <div>
+          <div style={S.specsColLabel}>Macho</div>
+          <div style={S.specsRowLabel}>Altura</div>
+          <div style={S.specsRowValue}>{specs.alturaMacho}</div>
+          <div style={S.specsRowLabel}>Peso</div>
+          <div style={S.specsRowValue}>{specs.pesoMacho}</div>
+        </div>
+        <div>
+          <div style={S.specsColLabel}>Hembra</div>
+          <div style={S.specsRowLabel}>Altura</div>
+          <div style={S.specsRowValue}>{specs.alturaHembra}</div>
+          <div style={S.specsRowLabel}>Peso</div>
+          <div style={S.specsRowValue}>{specs.pesoHembra}</div>
+        </div>
+      </div>
+      <div style={{ ...S.specsColLabel, marginBottom: 12 }}>Etapas de vida</div>
+      <div style={S.specsStagesGrid}>
+        <div>
+          <div style={S.specsStageLabel}>Cachorro</div>
+          <div style={S.specsStageValue}>{specs.cachorro}</div>
+        </div>
+        <div>
+          <div style={S.specsStageLabel}>Adulto</div>
+          <div style={S.specsStageValue}>{specs.adulto}</div>
+        </div>
+        <div>
+          <div style={S.specsStageLabel}>Maduro</div>
+          <div style={S.specsStageValue}>{specs.maduro}</div>
+        </div>
+        <div>
+          <div style={S.specsStageLabel}>Senior</div>
+          <div style={S.specsStageValue}>{specs.senior}</div>
+        </div>
+      </div>
+      <p style={S.specsNote}>Valores aproximados según el tamaño de la raza.</p>
+    </>
+  ) : (
+    filas[tab]?.map((f, i) => (
+      <div key={i} style={{ ...S.detailRow, borderBottom: i === filas[tab].length - 1 ? "none" : S.detailRow.borderBottom }}>
+        <div>
+          <p style={S.detailRowLabel}>{f.label}</p>
+          <p style={S.detailRowValue}>{f.valor}</p>
+        </div>
+        <IconoAcierto acierto={f.acierto} />
+      </div>
+    ))
+  )}
+</div>
             </div>
 
-            {/* ── Card de raza con enlace a criadores RSCE ── */}
-            <div style={S.detailRight}>
-              <div style={S.detailBadge}>
-                <svg viewBox="0 0 40 40" width="30" height="30" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="20" cy="13" r="6" fill={C.gold} />
-                  <ellipse cx="20" cy="28" rx="11" ry="9" fill={C.gold} />
-                  <ellipse cx="9" cy="11" rx="4" ry="6" fill={C.gold} transform="rotate(-20 9 11)" />
-                  <ellipse cx="31" cy="11" rx="4" ry="6" fill={C.gold} transform="rotate(20 31 11)" />
-                </svg>
+            {/* ── Columna derecha: card de raza + especificaciones ── */}
+            <div style={{ flex: "1 1 340px", minWidth: 300, maxWidth: 420, display: "flex", flexDirection: "column", gap: 16 }}>
+
+              {/* Card "Acerca de" */}
+              <div style={S.detailRight}>
+                <div style={S.detailBadge}>
+                  <svg viewBox="0 0 40 40" width="30" height="30" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="20" cy="13" r="6" fill={C.gold} />
+                    <ellipse cx="20" cy="28" rx="11" ry="9" fill={C.gold} />
+                    <ellipse cx="9" cy="11" rx="4" ry="6" fill={C.gold} transform="rotate(-20 9 11)" />
+                    <ellipse cx="31" cy="11" rx="4" ry="6" fill={C.gold} transform="rotate(20 31 11)" />
+                  </svg>
+                </div>
+                <h3 style={S.detailTitle}>Acerca de {nombreFormateado}</h3>
+                <p style={S.detailDesc}>{descripcion}</p>
+                <p style={{ fontSize: 12, color: C.muted, margin: "0 0 22px", fontStyle: "italic" }}>
+                  En la página de RSCE, selecciona "{nombreFormateado}" en el filtro de razas para ver los criadores disponibles.
+                </p>
+                <a
+                  href="https://www.rsce.es/criadores/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={S.btnFCI}
+                >
+                  Buscar criadores de {nombreFormateado}
+                  <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M7 4l6 6-6 6" />
+                  </svg>
+                </a>
               </div>
-              <h3 style={S.detailTitle}>Acerca de {nombreFormateado}</h3>
-              <p style={S.detailDesc}>{descripcion}</p>
-              <p style={{ fontSize: 12, color: C.muted, margin: "0 0 22px", fontStyle: "italic" }}>
-                En la página de RSCE, selecciona "{nombreFormateado}" en el filtro de razas para ver los criadores disponibles.
-              </p>
-              <a
-                href="https://www.rsce.es/criadores/"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={S.btnFCI}
-              >
-                Buscar criadores de {nombreFormateado}
-                <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M7 4l6 6-6 6" />
-                </svg>
-              </a>
+
+              
             </div>
           </div>
         )}
-
-        {razaActual && (() => {
-  const specs = ESPECIFICACIONES_TAMANO[razaActual.tamano] || ESPECIFICACIONES_TAMANO.mediano;
-  return (
-    <div style={S.specsWrap}>
-      <div style={S.specsCard}>
-        <h3 style={S.specsTitle}>Especificaciones</h3>
-        <div style={S.specsTitleRule} />
-        <div style={S.specsGrid}>
-          <div>
-            <div style={S.specsColLabel}>Macho</div>
-            <div style={S.specsRowLabel}>Altura</div>
-            <div style={S.specsRowValue}>{specs.alturaMacho}</div>
-            <div style={S.specsRowLabel}>Peso</div>
-            <div style={S.specsRowValue}>{specs.pesoMacho}</div>
-          </div>
-          <div>
-            <div style={S.specsColLabel}>Hembra</div>
-            <div style={S.specsRowLabel}>Altura</div>
-            <div style={S.specsRowValue}>{specs.alturaHembra}</div>
-            <div style={S.specsRowLabel}>Peso</div>
-            <div style={S.specsRowValue}>{specs.pesoHembra}</div>
-          </div>
-        </div>
-        <div style={S.specsColLabel}>Etapas de vida</div>
-        <div style={S.specsStagesGrid}>
-          <div>
-            <div style={S.specsStageLabel}>Cachorro</div>
-            <div style={S.specsStageValue}>{specs.cachorro}</div>
-          </div>
-          <div>
-            <div style={S.specsStageLabel}>Adulto</div>
-            <div style={S.specsStageValue}>{specs.adulto}</div>
-          </div>
-          <div>
-            <div style={S.specsStageLabel}>Maduro</div>
-            <div style={S.specsStageValue}>{specs.maduro}</div>
-          </div>
-          <div>
-            <div style={S.specsStageLabel}>Senior</div>
-            <div style={S.specsStageValue}>{specs.senior}</div>
-          </div>
-        </div>
-        <p style={S.specsNote}>Valores aproximados según el tamaño de la raza, no específicos de {nombreFormateado}.</p>
-      </div>
-    </div>
-  );
-})()}
 
         <div style={{ background: C.white, padding: "0 0 40px", display: "flex", justifyContent: "center" }}>
           <button style={S.btnPrimary} onClick={reiniciar}>Repetir el test</button>
