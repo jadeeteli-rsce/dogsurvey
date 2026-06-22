@@ -1265,7 +1265,7 @@ export default function TestPerroIdeal() {
   const LANDING_PANELS = [
     { nombre: "Golden Retriever", src: "https://images.unsplash.com/photo-1633722715463-d30f4f325e24?fm=jpg" },
     { nombre: "Border Collie",    src: "https://img.magnific.com/premium-photo/vertical-shot-adorable-border-collie-holding-stick-forest-sunlight_181624-42671.jpg" },
-    { nombre: "Beagle",           src: "https://thumbs.dreamstime.com/b/beagle-dog-cutie-vertical-portrait-one-breed-short-red-white-black-tricolor-hair-sitting-outdoors-green-grass-96077027.jpg" },
+    { nombre: "Beagle",           src: "https://st.depositphotos.com/3019365/4430/i/450/depositphotos_44302091-stock-photo-beagle-puppy-close-up-portrait.jpg"},
     { nombre: "Husky Siberiano",  src: "https://img.magnific.com/free-photo/vertical-shallow-focus-side-view-siberian-husky-dog_181624-60703.jpg" },
   ];
 
